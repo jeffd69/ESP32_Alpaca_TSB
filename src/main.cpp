@@ -1,11 +1,9 @@
 /**************************************************************************************************
   Filename:       main.cpp
-  Revised:        $Date: 2024-01-30$
-  Revision:       $Revision: 01 $
+  Revised:        Date: 2024-12-02
+  Revision:       Revision: 01
 
-  Description:    ASCOM Alpaca ESP32 Server Test
-
-  Copyright 2024 peter_n@gmx.de. All rights reserved.
+  Description:    ASCOM Alpaca ESP32 TSBoard implementation
 **************************************************************************************************/
 //#define CONFIG_ASYNC_TCP_USE_WDT 0
 
@@ -94,7 +92,7 @@ void setup()
   delay(5000); // time to detect USB device
 #endif  
 
-  SLOG_INFO_PRINTF("BigPet ESP32ALPACADeviceDemo started ...\n");
+  SLOG_INFO_PRINTF("ESP32ALPACADeviceDemo started ...\n");
 
   WiFi.mode(WIFI_STA);
   WiFi.begin(DEFAULT_SSID, DEFAULT_PWD);

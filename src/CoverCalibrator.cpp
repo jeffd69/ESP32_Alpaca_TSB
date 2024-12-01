@@ -1,10 +1,9 @@
 /**************************************************************************************************
   Filename:       CoverCalibrator.cpp
-  Revised:        $Date: 2024-01-14$
-  Revision:       $Revision: 01 $
-  Description:    ASCOM CoverCalibrator Device Teplate with Simulation
+  Revised:        Date: 2024-12-02
+  Revision:       Revision: 01
 
-  Copyright 2024 peter_n@gmx.de. All rights reserved.
+  Description:    ASCOM Alpaca ESP32 TSBoard implementation
 **************************************************************************************************/
 #include "CoverCalibrator.h"
 

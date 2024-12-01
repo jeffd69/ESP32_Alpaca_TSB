@@ -1,10 +1,9 @@
 /**************************************************************************************************
   Filename:       Focuser.h
-  Revised:        $Date: 2024-07-24$
-  Revision:       $Revision: 01 $
-  Description:    ASCOM Alpaca Focuser Device Template
+  Revised:        Date: 2024-12-02
+  Revision:       Revision: 01
 
-  Copyright 2024 peter_n@gmx.de. All rights reserved.
+  Description:    ASCOM Alpaca ESP32 TSBoard implementation
 **************************************************************************************************/
 #pragma once
 #include "AlpacaFocuser.h"

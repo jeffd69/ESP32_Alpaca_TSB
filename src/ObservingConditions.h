@@ -1,10 +1,9 @@
 /**************************************************************************************************
   Filename:       ObservingConditions.h
-  Revised:        $Date: 2024-02-02$
-  Revision:       $Revision: 01 $
-  Description:    ASCOM Observing Conditions Device Template
+  Revised:        Date: 2024-12-02
+  Revision:       Revision: 01
 
-  Copyright 2024 peter_n@gmx.de. All rights reserved.
+  Description:    ASCOM Alpaca ESP32 TSBoard implementation
 **************************************************************************************************/
 #pragma once
 #include "AlpacaObservingConditions.h"
