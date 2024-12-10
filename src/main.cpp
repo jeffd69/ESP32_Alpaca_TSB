@@ -8,10 +8,13 @@
 //#define CONFIG_ASYNC_TCP_USE_WDT 0
 
 // commend/uncommend to enable/disable device testsing with templates
-#define TEST_COVER_CALIBRATOR     // create CoverCalibrator device
-#define TEST_SWITCH               // create Switch device
-#define TEST_OBSERVING_CONDITIONS // create ObservingConditions device
-#define TEST_FOCUSER              // create Focuser device
+// #define TEST_COVER_CALIBRATOR     // create CoverCalibrator device
+// #define TEST_OBSERVING_CONDITIONS // create ObservingConditions device
+// #define TEST_FOCUSER              // create Focuser device
+
+#define USE_DOME
+#define USE_SWITCH                // create Switch device
+#define USE_SAFETYMONITOR
 
 // #define TEST_RESTART              // only for testing
 #include "Credentials.h"
@@ -25,9 +28,19 @@
 CoverCalibrator coverCalibrator;
 #endif
 
-#ifdef TEST_SWITCH
+#ifdef USE_DOME
+#include<Dome.h>
+Dome domeDevice;
+#endif
+
+#ifdef USE_SWITCH
 #include <Switch.h>
 Switch switchDevice;
+#endif
+
+#ifdef USE_SAFETYMONITOR
+#include <SafetyMonitor.h>
+SafetyMonitor safemonDevice;
 #endif
 
 #ifdef TEST_OBSERVING_CONDITIONS
@@ -121,9 +134,19 @@ void setup()
   alpaca_server.AddDevice(&coverCalibrator);
 #endif
 
-#ifdef TEST_SWITCH
+#ifdef USE_DOME
+	domeDevice.Begin();
+	alpaca_server.AddDevice(&domeDevice);
+#endif
+
+#ifdef USE_SWITCH
   switchDevice.Begin();
   alpaca_server.AddDevice(&switchDevice);
+#endif
+
+#ifdef USE_SAFETYMONITOR
+  safemonDevice.Begin();
+  alpaca_server.AddDevice(&safemonDevice);
 #endif
 
 #ifdef TEST_OBSERVING_CONDITIONS
@@ -155,15 +178,26 @@ void loop()
 
   alpaca_server.Loop();
 
+#ifdef USE_DOME
+  safemonDevice.Loop();
+  delay(25);
+#endif
+
+#ifdef USE_SWITCH
+  switchDevice.Loop();
+  delay(25);
+#endif
+
+#ifdef USE_SAFETYMONITOR
+safemonDevice.Loop();
+  delay(25);
+#endif
+
 #ifdef TEST_COVER_CALIBRATOR
   coverCalibrator.Loop();
   delay(50);
 #endif
 
-#ifdef TEST_SWITCH
-  switchDevice.Loop();
-  delay(50);
-#endif
 
 #ifdef TEST_OBSERVING_CONDITIONS
   observingConditions.Loop();
@@ -175,7 +209,7 @@ void loop()
   delay(10);
 #endif
 
-  delay(10);
+  delay(25);
 
 }
 

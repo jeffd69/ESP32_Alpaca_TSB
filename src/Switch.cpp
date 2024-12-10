@@ -7,13 +7,31 @@
 **************************************************************************************************/
 #include "Switch.h"
 
-const uint32_t k_num_of_switch_devices = 4;
+const uint32_t k_num_of_switch_devices = 20;
 
 SwitchDevice_t init_switch_device[k_num_of_switch_devices] = {
-    {true, true, "Switch-0", "Relay 0 (read/write)", 0.0, 0.0, 10.0, 1.0},
-    {false, false, "Switch-1", "Temperature (read only)", 20.0, -50.0, 50.0, 0.1},
-    {true, false, "Switch 2", "Door closed (read only) - fixed init", 0.0, 0.0, 1.0, 1.0},
-    {false, true, "Switch-3", "Heater (read/write) - fixed init", 0.0, 0.0, 100.0, 0.5}};
+    {false, false, "Switch 0", "IN 1 (R)", 0.0, 0.0, 1.0, 1.0},
+    {false, false, "Switch 1", "IN 2 (R)", 0.0, 0.0, 1.0, 1.0},
+    {false, false, "Switch 2", "IN 3 (R)", 0.0, 0.0, 1.0, 1.0},
+    {false, false, "Switch 3", "IN 4 (R)", 0.0, 0.0, 1.0, 1.0},
+    {false, false, "Switch 4", "IN 5 (R)", 0.0, 0.0, 1.0, 1.0},
+    {false, false, "Switch 5", "IN 6 (R)", 0.0, 0.0, 1.0, 1.0},
+    {false, false, "Switch 6", "IN 7 (R)", 0.0, 0.0, 1.0, 1.0},
+    {false, false, "Switch 7", "IN 8 (R)", 0.0, 0.0, 1.0, 1.0},
+    {false, true, "Switch 8", "OUT 1 (RW)", 0.0, 0.0, 1.0, 1.0},
+    {false, true, "Switch 9", "OUT 2 (RW)", 0.0, 0.0, 1.0, 1.0},
+    {false, true, "Switch 10", "OUT 3 (RW)", 0.0, 0.0, 1.0, 1.0},
+    {false, true, "Switch 11", "OUT 4 (RW)", 0.0, 0.0, 1.0, 1.0},
+    {false, true, "Switch 12", "OUT 5 (RW)", 0.0, 0.0, 1.0, 1.0},
+    {false, true, "Switch 13", "OUT 6 (RW)", 0.0, 0.0, 1.0, 1.0},
+    {false, true, "Switch 14", "OUT 7 (RW)", 0.0, 0.0, 1.0, 1.0},
+    {false, true, "Switch 15", "OUT 8 (RW)", 0.0, 0.0, 1.0, 1.0},
+
+    {false, true, "Switch 16", "PWM 1 (RW)", 0.0, 0.0, 100.0, 1.0},
+    {false, true, "Switch 17", "PWM 2 (RW)", 0.0, 0.0, 100.0, 1.0},
+    {false, true, "Switch 18", "PWM 3 (RW)", 0.0, 0.0, 100.0, 1.0},
+    {false, true, "Switch 19", "PWM 4 (RW)", 0.0, 0.0, 100.0, 1.0}
+    };
 
 Switch::Switch() : AlpacaSwitch(k_num_of_switch_devices)
 {
