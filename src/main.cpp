@@ -7,53 +7,22 @@
 **************************************************************************************************/
 //#define CONFIG_ASYNC_TCP_USE_WDT 0
 
-// commend/uncommend to enable/disable device testsing with templates
-// #define TEST_COVER_CALIBRATOR     // create CoverCalibrator device
-// #define TEST_OBSERVING_CONDITIONS // create ObservingConditions device
-// #define TEST_FOCUSER              // create Focuser device
 
-#define USE_DOME
-#define USE_SWITCH                // create Switch device
-#define USE_SAFETYMONITOR
-
-// #define TEST_RESTART              // only for testing
+// #define TEST_RESTART             // only for testing
 #include "Credentials.h"
+#include "defines.h"                // pins and bitmasks
 
 #include <SLog.h>
 #include <AlpacaDebug.h>
 #include <AlpacaServer.h>
 
-#ifdef TEST_COVER_CALIBRATOR
-#include <CoverCalibrator.h>
-CoverCalibrator coverCalibrator;
-#endif
-
-#ifdef USE_DOME
 #include<Dome.h>
-Dome domeDevice;
-#endif
-
-#ifdef USE_SWITCH
 #include <Switch.h>
-Switch switchDevice;
-#endif
-
-#ifdef USE_SAFETYMONITOR
 #include <SafetyMonitor.h>
+
+Dome domeDevice;
+Switch switchDevice;
 SafetyMonitor safemonDevice;
-#endif
-
-#ifdef TEST_OBSERVING_CONDITIONS
-#include <ObservingConditions.h>
-ObservingConditions observingConditions;
-#endif
-
-#ifdef TEST_FOCUSER
-#include <Focuser.h>
-Focuser focuser;
-#endif
-
-#define PIN_WIFI_LED 15 // if lolin_s2_mini
 
 #define VERSION "2.0.1"
 
@@ -97,13 +66,25 @@ void checkForRestart()
 }
 #endif
 
+uint16_t shiftreg_in, shiftreg_out;
+static bool _do_open_button, _do_close_button, _do_opened_switch, _do_closed_switch;
+static bool _do_roof_open, _do_roof_close;
+
+static uint8_t _sa_inputs;
+
+static bool _sw_in[8], _sw_out[8];
+static uint8_t _sw_pwm[4];
+
+uint16_t read_shift_register( void );
+void write_shift_register( uint16_t value );
+void init_IO( void );
+
 void setup()
 {
   // setup logging and WiFi
   g_Slog.Begin(Serial, 115200);
-#ifdef LOLIN_S2_MINI  
-  delay(5000); // time to detect USB device
-#endif  
+
+  init_IO();
 
   SLOG_INFO_PRINTF("ESP32ALPACADeviceDemo started ...\n");
 
@@ -115,13 +96,12 @@ void setup()
     SLOG_INFO_PRINTF("Connecting to WiFi ..\n");
     delay(1000);
   }
-  {
-    IPAddress ip = WiFi.localIP();
-    char wifi_ipstr[32] = "xxx.yyy.zzz.www";
-    snprintf(wifi_ipstr, sizeof(wifi_ipstr), "%03d.%03d.%03d.%03d", ip[0], ip[1], ip[2], ip[3]);
-    SLOG_INFO_PRINTF("connected with %s\n", wifi_ipstr);
-  }
-
+  
+  IPAddress ip = WiFi.localIP();
+  char wifi_ipstr[32] = "xxx.yyy.zzz.www";
+  snprintf(wifi_ipstr, sizeof(wifi_ipstr), "%03d.%03d.%03d.%03d", ip[0], ip[1], ip[2], ip[3]);
+  SLOG_INFO_PRINTF("connected with %s\n", wifi_ipstr);
+  
 
   // setup ESP32AlpacaDevices
   // 1. Init AlpacaServer
@@ -129,35 +109,14 @@ void setup()
   // 3. Finalize AlpacaServer
   alpaca_server.Begin();
 
-#ifdef TEST_COVER_CALIBRATOR
-  coverCalibrator.Begin();
-  alpaca_server.AddDevice(&coverCalibrator);
-#endif
+  domeDevice.Begin();
+  alpaca_server.AddDevice(&domeDevice);
 
-#ifdef USE_DOME
-	domeDevice.Begin();
-	alpaca_server.AddDevice(&domeDevice);
-#endif
-
-#ifdef USE_SWITCH
   switchDevice.Begin();
   alpaca_server.AddDevice(&switchDevice);
-#endif
 
-#ifdef USE_SAFETYMONITOR
   safemonDevice.Begin();
   alpaca_server.AddDevice(&safemonDevice);
-#endif
-
-#ifdef TEST_OBSERVING_CONDITIONS
-  observingConditions.Begin();
-  alpaca_server.AddDevice(&observingConditions);
-#endif
-
-#ifdef TEST_FOCUSER
-  focuser.Begin();
-  alpaca_server.AddDevice(&focuser);
-#endif
 
   alpaca_server.RegisterCallbacks();
   alpaca_server.LoadSettings();
@@ -177,39 +136,89 @@ void loop()
 #endif
 
   alpaca_server.Loop();
-
-#ifdef USE_DOME
-  safemonDevice.Loop();
   delay(25);
-#endif
 
-#ifdef USE_SWITCH
+  domeDevice.Loop();
+  delay(25);
+
   switchDevice.Loop();
   delay(25);
-#endif
 
-#ifdef USE_SAFETYMONITOR
-safemonDevice.Loop();
+  safemonDevice.Loop();
   delay(25);
-#endif
-
-#ifdef TEST_COVER_CALIBRATOR
-  coverCalibrator.Loop();
-  delay(50);
-#endif
 
 
-#ifdef TEST_OBSERVING_CONDITIONS
-  observingConditions.Loop();
-  delay(10);
-#endif
+  if( domeDevice.GetNumberOfConnectedClients() > 0 )
+  {
 
-#ifdef TEST_FOCUSER
-  focuser.Loop();
-  delay(10);
-#endif
+  }
 
-  delay(25);
+  
+
+}
+
+
+uint16_t read_shift_register( void )
+{
+  // TODO read inputs from shift register 165
+  uint16_t v = 0;
+
+  return v;
+}
+
+void write_shift_register( uint16_t value )
+{
+  // TODO put value on the shift register 595
+}
+
+void init_IO( void )
+{
+  pinMode(SR_OUT_PIN_OE, OUTPUT);       // output enable
+  pinMode(SR_OUT_PIN_STCP, OUTPUT);     // storage clock pulse
+  pinMode(SR_OUT_PIN_MR, OUTPUT);       // master reset
+  pinMode(SR_OUT_PIN_SHCP, OUTPUT);     // shift register clock pulse
+  pinMode(SR_OUT_PIN_SDOUT, OUTPUT);    // serial data
+
+  pinMode(SR_OUT_PWM0, OUTPUT);
+  pinMode(SR_OUT_PWM1, OUTPUT);
+  pinMode(SR_OUT_PWM2, OUTPUT);
+  pinMode(SR_OUT_PWM3, OUTPUT);
+
+  pinMode(SR_IN_PIN_CE, OUTPUT);
+  pinMode(SR_IN_PIN_CP, OUTPUT);
+  pinMode(SR_IN_PIN_PL, OUTPUT);
+  pinMode(SR_IN_PIN_SDIN, INPUT);
+
+  pinMode(SR_IN_PIN_AP_SET, INPUT);
+  pinMode(SR_OUT_PIN_AP_LED, OUTPUT);
+  
+  digitalWrite(SR_OUT_PIN_OE, LOW);
+  digitalWrite(SR_OUT_PIN_STCP, LOW);
+  digitalWrite(SR_OUT_PIN_MR, LOW);
+  digitalWrite(SR_OUT_PIN_SHCP, LOW);
+  digitalWrite(SR_OUT_PIN_SDOUT, LOW);
+
+  digitalWrite(SR_OUT_PWM0, LOW);
+  digitalWrite(SR_OUT_PWM1, LOW);
+  digitalWrite(SR_OUT_PWM2, LOW);
+  digitalWrite(SR_OUT_PWM3, LOW);
+
+  digitalWrite(SR_IN_PIN_CE, LOW);
+  digitalWrite(SR_IN_PIN_CP, LOW);
+  digitalWrite(SR_IN_PIN_PL, LOW);
+
+  digitalWrite(SR_OUT_PIN_AP_LED, LOW);
+
+  // clock pulse on 595 shift register with OE and MR low
+  digitalWrite(SR_OUT_PIN_SHCP, HIGH);
+  usleep(10);
+  digitalWrite(SR_OUT_PIN_STCP, HIGH);
+  usleep(10);
+  digitalWrite(SR_OUT_PIN_SHCP, LOW);
+  usleep(10);
+  digitalWrite(SR_OUT_PIN_STCP, LOW);
+  usleep(10);
+  digitalWrite(SR_OUT_PIN_MR, HIGH);
 
 }
 

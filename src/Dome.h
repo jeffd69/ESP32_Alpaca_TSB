@@ -19,6 +19,9 @@ enum struct ShutterStatus_t
 };
 */
 
+extern bool _do_open_button, _do_close_button, _do_opened_switch, _do_closed_switch;
+extern bool _do_roof_open, _do_roof_close;
+
 class Dome : public AlpacaDome
 {
 private:

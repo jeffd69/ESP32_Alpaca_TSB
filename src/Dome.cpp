@@ -35,6 +35,7 @@ void Dome::Loop()
 		_shutter == AlpacaShutterStatus_t::kClosed;
 		_slew = false;
 	}
+
 }
 
 const bool Dome::_putAbort()	// stops shutter motor, sets _shutter to error, set _slew to false

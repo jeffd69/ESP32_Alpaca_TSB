@@ -11,6 +11,9 @@
 // comment/uncomment to enable/disable debugging
 // #define DEBUG_SWITCH
 
+extern bool _sw_in[8], _sw_out[8];
+extern u_int8_t _sw_pwm[4];
+
 class Switch : public AlpacaSwitch
 {
 private:
