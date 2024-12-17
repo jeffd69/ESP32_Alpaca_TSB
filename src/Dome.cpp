@@ -18,24 +18,74 @@ void Dome::Begin()
 {
     // init Dome
     AlpacaDome::Begin();
+
+	// init shutter status
+	if( _use_switch )
+	{
+		if( _dome_closed_switch )
+			_shutter = AlpacaShutterStatus_t::kClosed;
+		else if( _dome_opened_switch )
+			_shutter = AlpacaShutterStatus_t::kOpen;
+		else
+			_shutter = AlpacaShutterStatus_t::kError;
+	}
+	else
+	{
+		_shutter = AlpacaShutterStatus_t::kError;
+	}
 }
 
 void Dome::Loop()
 {
     // simulation of roof moving and changing status using timer (no limit switches)
-	
-	if(( _shutter == AlpacaShutterStatus_t::kOpening ) && ( millis() > _timer_end ))
-	{
-		_shutter == AlpacaShutterStatus_t::kOpen;
-		_slew = false;
-	}
-	
-	if(( _shutter == AlpacaShutterStatus_t::kClosing ) && ( millis() > _timer_end ))
-	{
-		_shutter == AlpacaShutterStatus_t::kClosed;
-		_slew = false;
-	}
 
+	if( _use_switch )
+	{
+		if(( millis() - _timer_ini ) > (_timeout * 1000 ))		// timeout!!!!!!!!!!!
+		{
+			_shutter = AlpacaShutterStatus_t::kError;			// set error status
+			_slew = false;
+			_timer_ini = 0;
+			_timer_end = 0;
+			_dome_roof_close = false;							// turn relays OFF
+			_dome_roof_open = false;
+			return;
+		}
+
+		if(( _shutter == AlpacaShutterStatus_t::kOpening ) && ( _dome_opened_switch ))
+		{
+			_shutter == AlpacaShutterStatus_t::kOpen;
+			_slew = false;
+			_dome_roof_close = false;		// turn relays OFF
+			_dome_roof_open = false;
+		}
+		
+		if(( _shutter == AlpacaShutterStatus_t::kClosing ) && ( _dome_closed_switch ))
+		{
+			_shutter == AlpacaShutterStatus_t::kClosed;
+			_slew = false;
+			_dome_roof_close = false;		// turn relays OFF
+			_dome_roof_open = false;
+		}
+	}
+	else
+	{
+		if(( _shutter == AlpacaShutterStatus_t::kOpening ) && ( millis() > _timer_end ))
+		{
+			_shutter == AlpacaShutterStatus_t::kOpen;
+			_slew = false;
+			_dome_roof_close = false;		// turn relays OFF
+			_dome_roof_open = false;
+		}
+		
+		if(( _shutter == AlpacaShutterStatus_t::kClosing ) && ( millis() > _timer_end ))
+		{
+			_shutter == AlpacaShutterStatus_t::kClosed;
+			_slew = false;
+			_dome_roof_close = false;		// turn relays OFF
+			_dome_roof_open = false;
+		}
+	}
 }
 
 const bool Dome::_putAbort()	// stops shutter motor, sets _shutter to error, set _slew to false
@@ -45,6 +95,9 @@ const bool Dome::_putAbort()	// stops shutter motor, sets _shutter to error, set
 	
 	_timer_ini = 0;
 	_timer_end = 0;
+
+	_dome_roof_close = false;		// turn relays OFF
+	_dome_roof_open = false;
 	
 	return true;
 }
@@ -66,6 +119,9 @@ const bool Dome::_putClose()
 		
 		_timer_ini = millis();
 		_timer_end = _timer_ini + _timeout * 1000;
+
+		_dome_roof_close = true;		// turn close relays ON
+		_dome_roof_open = false;		// turn open relays OFF
 	}
 	
 	return true;
@@ -88,6 +144,9 @@ const bool Dome::_putOpen()
 		
 		_timer_ini = millis();
 		_timer_end = _timer_ini + _timeout * 1000;
+
+		_dome_roof_close = false;		// turn close relays OFF
+		_dome_roof_open = true;			// turn open relays ON
 	}
 	
 	return true;

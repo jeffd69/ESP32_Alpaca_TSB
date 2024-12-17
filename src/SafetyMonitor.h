@@ -8,7 +8,7 @@
 #pragma once
 #include "AlpacaSafetyMonitor.h"
 
-extern u_int8_t _sa_inputs;
+extern u_int8_t _safemon_inputs;
 
 class SafetyMonitor : public AlpacaSafetyMonitor
 {

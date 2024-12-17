@@ -9,7 +9,7 @@
 #define SR_OUT_PIN_STCP     2           // output latch storage clock
 #define SR_OUT_PIN_MR       12          // shift register master reset
 #define SR_OUT_PIN_SHCP     14          // shift register serial clock
-#define SR_OUT_PIN_SDOUT    27          // serial data
+#define SR_OUT_PIN_SDOUT    27          // serial data out
 
 #define SR_OUT_PWM0         32          // PWM channels
 #define SR_OUT_PWM1         33
@@ -19,7 +19,7 @@
 #define SR_IN_PIN_CE        5           // 165 shift register chip enable
 #define SR_IN_PIN_CP        18          // clock
 #define SR_IN_PIN_PL        19          // parallel load
-#define SR_IN_PIN_SDIN      4           // serial data
+#define SR_IN_PIN_SDIN      4           // serial data in
 
 #define SR_IN_PIN_AP_SET    34          // net config pin
 #define SR_OUT_PIN_AP_LED   13          // net config LED
@@ -47,13 +47,13 @@
 
 // bit mask for input shif register 165
 #define BIT_IN_0            0x0001      // 0bxx00 0000 0000 0001
-#define BIT_IN_0            0x0002      // 0bxx00 0000 0000 0010
-#define BIT_IN_0            0x0004      // 0bxx00 0000 0000 0100
-#define BIT_IN_0            0x0008      // 0bxx00 0000 0000 1000
-#define BIT_IN_0            0x0010      // 0bxx00 0000 0001 0000
-#define BIT_IN_0            0x0020      // 0bxx00 0000 0010 0000
-#define BIT_IN_0            0x0040      // 0bxx00 0000 0100 0000
-#define BIT_IN_0            0x0080      // 0bxx00 0000 1000 0000
+#define BIT_IN_1            0x0002      // 0bxx00 0000 0000 0010
+#define BIT_IN_2            0x0004      // 0bxx00 0000 0000 0100
+#define BIT_IN_3            0x0008      // 0bxx00 0000 0000 1000
+#define BIT_IN_4            0x0010      // 0bxx00 0000 0001 0000
+#define BIT_IN_5            0x0020      // 0bxx00 0000 0010 0000
+#define BIT_IN_6            0x0040      // 0bxx00 0000 0100 0000
+#define BIT_IN_7            0x0080      // 0bxx00 0000 1000 0000
 
 #define BIT_FC_CLOSE        0x0100      // 0bx000 0001 0000 0000
 #define BIT_FC_OPEN         0x0200      // 0bx000 0010 0000 0000
