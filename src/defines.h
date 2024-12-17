@@ -5,6 +5,8 @@
   Description:    board definitions
 **************************************************************************************************/
 
+#define SYSLOG_HOST "192.168.1.68" // your SysLog-Host
+
 #define SR_OUT_PIN_OE       15          // 595 shift register output enable
 #define SR_OUT_PIN_STCP     2           // output latch storage clock
 #define SR_OUT_PIN_MR       12          // shift register master reset

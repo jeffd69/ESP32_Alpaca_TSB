@@ -84,8 +84,16 @@ void init_IO( void );
 
 void setup()
 {
+  Serial.begin(115200);
+  while(!Serial);
+
+  Serial.println("Serial OK");
+
   // setup logging and WiFi
   g_Slog.Begin(Serial, 115200);
+  SLOG_NOTICE_PRINTF("SLogDemo started\n");
+
+  SLOG_INFO_PRINTF("Try to connect with WFi %s\n", DEFAULT_SSID);
 
   init_IO();
 
@@ -104,6 +112,8 @@ void setup()
   char wifi_ipstr[32] = "xxx.yyy.zzz.www";
   snprintf(wifi_ipstr, sizeof(wifi_ipstr), "%03d.%03d.%03d.%03d", ip[0], ip[1], ip[2], ip[3]);
   SLOG_INFO_PRINTF("connected with %s\n", wifi_ipstr);
+
+  g_Slog.Begin(String(SYSLOG_HOST), 514); //  (String(SYSLOG_HOST), 514);
   
 
   // setup ESP32AlpacaDevices
