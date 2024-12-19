@@ -35,6 +35,7 @@ SwitchDevice_t init_switch_device[k_num_of_switch_devices] = {
 
 Switch::Switch() : AlpacaSwitch(k_num_of_switch_devices)
 {
+  //_p_swtc = AlpacaSwitch::_p_switch_devices;
 }
 
 void Switch::Begin()
@@ -67,27 +68,24 @@ void Switch::Begin()
 
 void Switch::Loop()
 {
-  // TODO
-  // This is only an example with funny HW to simulate some inputs
-
-  // Get physical data and set value
-
-  // Switch 1
-  double temperature = 11.0 + static_cast<double>(millis() % 10) / 10;
-  SetSwitchValue(1, temperature); // double
-
-  // Switch 2
-  bool door_closed = ((millis() / 10000) % 2) == 0 ? true : false;
-
-#ifdef DEBUG_SWITCH
-  if (door_closed != GetValue(2) == 0.0 ? false : true)
+  // copy inputs to AlpacaSwitch::_p_switch_devices
+  for(int i=0; i<8; i++)
   {
-    DebugSwitchDevice(1);
-    DebugSwitchDevice(2);
+    if(_sw_in[i])                           // set input value to
+      AlpacaSwitch::SetSwitch(i, true);
+    else
+      AlpacaSwitch::SetSwitch(i, false);
+  
+    if( AlpacaSwitch::GetValue(i + 8) )
+      _sw_out[i] = true;
+    else
+      _sw_out[i] = false;
   }
-#endif
 
-  SetSwitch(2, door_closed); // bool
+  for(int i=0; i<4; i++)
+  {
+    _sw_pwm[i + 16] = AlpacaSwitch::GetSwitchValue(i + 16);
+  }
 }
 
 /**
@@ -95,10 +93,17 @@ void Switch::Loop()
  */
 const bool Switch::_writeSwitchValue(uint32_t id, double value)
 {
+  // TODO write to physical device, GPIO, etc
   bool result = false; // wrong id or invalid value
 
   // TODO check id
-  // TODO write to physical device, GPIO, etc
+  if((id < 8) || (id > (k_num_of_switch_devices-1)))
+    return false;
+
+  if((id > 7 ) && ( id < 16 ))
+    _sw_out[id - 8] = (value != 0 ? true : false);
+  else
+    _sw_pwm[id - 16] = (uint8_t)value;
 
 #ifdef DEBUG_SWITCH
   DebugSwitchDevice(id);
@@ -111,28 +116,28 @@ const bool Switch::_writeSwitchValue(uint32_t id, double value)
 
 void Switch::AlpacaReadJson(JsonObject &root)
 {
-  DBG_JSON_PRINTFJ(SLOG_NOTICE, root, "BEGIN (root=<%s>) ...\n", _ser_json_);
-  AlpacaSwitch::AlpacaReadJson(root);
+	DBG_JSON_PRINTFJ(SLOG_NOTICE, root, "BEGIN (root=<%s>) ...\n", _ser_json_);
+	AlpacaSwitch::AlpacaReadJson(root);
 
-  char title[32] = "";
-  for (uint32_t u = 0; u < GetMaxSwitch(); u++)
-  {
-    if (GetSwitchInitBySetup(u))
-    {
-      snprintf(title, sizeof(title), "Configuration Device %d", u);
-      if (JsonObject obj_config = root[title])
-      {
-        InitSwitchName(u, obj_config["Name"] | GetSwitchName(u));
-        InitSwitchDescription(u, obj_config["Description"] | GetSwitchDescription(u));
-        InitSwitchCanWrite(u, obj_config["CanWrite"] | GetSwitchCanWrite(u));
-        InitSwitchMinValue(u, obj_config["MinValue"] | GetSwitchMinValue(u));
-        InitSwitchMaxValue(u, obj_config["MaxValue"] | GetSwitchMaxValue(u));
-        InitSwitchStep(u, obj_config["Step"] | GetSwitchStep(u));
-        DBG_JSON_PRINTFJ(SLOG_NOTICE, obj_config, "... title=%s obj_config=<%s> \n", title, _ser_json_);
-      }
-    }
-  }
-  SLOG_PRINTF(SLOG_NOTICE, "... END\n");
+	char title[32] = "";
+	for (uint32_t u = 0; u < GetMaxSwitch(); u++)
+	{
+		if (GetSwitchInitBySetup(u))
+		{
+			snprintf(title, sizeof(title), "Configuration_Device %d", u);
+			if (JsonObject obj_config = root[title])
+			{
+				InitSwitchName(u, obj_config["Name"] | GetSwitchName(u));
+				InitSwitchDescription(u, obj_config["Description"] | GetSwitchDescription(u));
+				InitSwitchCanWrite(u, obj_config["CanWrite"] | GetSwitchCanWrite(u));
+				InitSwitchMinValue(u, obj_config["MinValue"] | GetSwitchMinValue(u));
+				InitSwitchMaxValue(u, obj_config["MaxValue"] | GetSwitchMaxValue(u));
+				InitSwitchStep(u, obj_config["Step"] | GetSwitchStep(u));
+				DBG_JSON_PRINTFJ(SLOG_NOTICE, obj_config, "... title=%s obj_config=<%s> \n", title, _ser_json_);
+			}
+		}
+	}
+	SLOG_PRINTF(SLOG_NOTICE, "... END\n");
 }
 
 void Switch::AlpacaWriteJson(JsonObject &root)
@@ -147,7 +152,7 @@ void Switch::AlpacaWriteJson(JsonObject &root)
   {
     if (GetSwitchInitBySetup(u))
     {
-      snprintf(title, sizeof(title), "Configuration Device %d", u);
+      snprintf(title, sizeof(title), "Configuration_Device %d", u);
       JsonObject obj_config = root[title].to<JsonObject>();
       {
         char s[128];

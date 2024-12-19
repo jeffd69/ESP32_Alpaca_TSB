@@ -30,14 +30,17 @@ const bool SafetyMonitor::_getIsSafe()
 void SafetyMonitor::AlpacaReadJson(JsonObject &root)
 {
     DBG_JSON_PRINTFJ(SLOG_NOTICE, root, "BEGIN (root=<%s>) ...\n", _ser_json_);
-
     AlpacaSafetyMonitor::AlpacaReadJson(root);
+
     if (JsonObject obj_config = root["SafetyMonitorConfiguration"])
     {
-        int32_t _rain_delay = obj_config["Rain delay"] | _rain_delay;
-		int32_t _power_delay = obj_config["Power off delay"] | _power_delay;
+        int32_t _rd = obj_config["Rain delay"] | _rain_delay;
+		int32_t _pd = obj_config["Power off delay"] | _power_delay;
 
-        SLOG_PRINTF(SLOG_INFO, "... END  _rain_delay=%i _power_delay=%i\n", (int)_rain_delay, _power_delay);
+        _rain_delay = _rd;
+        _power_delay = _pd;
+
+        SLOG_PRINTF(SLOG_INFO, "... END  _rain_delay=%i _power_delay=%i\n", (int)_rain_delay, (int)_power_delay);
     }
     else
     {

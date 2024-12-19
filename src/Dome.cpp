@@ -165,21 +165,25 @@ const bool Dome::_getSlewing()
 
 void Dome::AlpacaReadJson(JsonObject &root)
 {
-    DBG_JSON_PRINTFJ(SLOG_NOTICE, root, "BEGIN (root=<%s>) ...\n", _ser_json_);
+	DBG_JSON_PRINTFJ(SLOG_NOTICE, root, "BEGIN (root=<%s>) ...\n", _ser_json_);
+	AlpacaDome::AlpacaReadJson(root);
 
-    AlpacaDome::AlpacaReadJson(root);
-    if (JsonObject obj_config = root["DomeConfiguration"])
-    {
-        bool _use_switch = obj_config["Use limit switches"] | _use_switch;
-        int32_t _timeout = obj_config["Shutter timeout"] | _timeout;
-		int32_t _overclose = obj_config["Extend closing"] | _overclose;
+	if (JsonObject obj_config = root["DomeConfiguration"])
+	{
+		bool _us = obj_config["Use limit switches"] | _use_switch;
+		int32_t _to = obj_config["Shutter timeout"] | _timeout;
+		int32_t _oc = obj_config["Extend closing"] | _overclose;
 
-        SLOG_PRINTF(SLOG_INFO, "... END  _use_switch=%i _timeout=%i _overclose=%i\n", (int)_use_switch, _timeout, _overclose);
-    }
-    else
-    {
-        SLOG_PRINTF(SLOG_WARNING, "... END no configuration\n");
-    }
+		_use_switch = _us;
+		_timeout = _to;
+		_overclose = _oc;
+
+		SLOG_PRINTF(SLOG_INFO, "... END  _use_switch=%i _timeout=%i _overclose=%i\n", (int)_use_switch, _timeout, _overclose);
+	}
+	else
+	{
+		SLOG_PRINTF(SLOG_WARNING, "... END no configuration\n");
+	}
 }
 
 void Dome::AlpacaWriteJson(JsonObject &root)

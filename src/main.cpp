@@ -16,7 +16,7 @@
 #include <AlpacaDebug.h>
 #include <AlpacaServer.h>
 
-#include<Dome.h>
+#include <Dome.h>
 #include <Switch.h>
 #include <SafetyMonitor.h>
 
@@ -112,9 +112,13 @@ void setup()
   char wifi_ipstr[32] = "xxx.yyy.zzz.www";
   snprintf(wifi_ipstr, sizeof(wifi_ipstr), "%03d.%03d.%03d.%03d", ip[0], ip[1], ip[2], ip[3]);
   SLOG_INFO_PRINTF("connected with %s\n", wifi_ipstr);
-
-  g_Slog.Begin(String(SYSLOG_HOST), 514); //  (String(SYSLOG_HOST), 514);
   
+  // g_Slog.Begin(String(SYSLOG_HOST), 514);
+  // finalize logging setup
+  g_Slog.Begin(alpaca_server.GetSyslogHost().c_str());
+  SLOG_INFO_PRINTF("SYSLOG enabled and running log_lvl=%s enable_serial=%s\n", g_Slog.GetLvlMskStr().c_str(), alpaca_server.GetSerialLog() ? "true" : "false"); 
+  g_Slog.SetLvlMsk(alpaca_server.GetLogLvl());
+  g_Slog.SetEnableSerial(alpaca_server.GetSerialLog());
 
   // setup ESP32AlpacaDevices
   // 1. Init AlpacaServer
@@ -134,11 +138,12 @@ void setup()
   alpaca_server.RegisterCallbacks();
   alpaca_server.LoadSettings();
 
-  // finalize logging setup
+  /* finalize logging setup
   g_Slog.Begin(alpaca_server.GetSyslogHost().c_str());
   SLOG_INFO_PRINTF("SYSLOG enabled and running log_lvl=%s enable_serial=%s\n", g_Slog.GetLvlMskStr().c_str(), alpaca_server.GetSerialLog() ? "true" : "false"); 
   g_Slog.SetLvlMsk(alpaca_server.GetLogLvl());
   g_Slog.SetEnableSerial(alpaca_server.GetSerialLog());
+  */
 
   _shift_reg_in = 0;
   _shift_reg_out = 0;
