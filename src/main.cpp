@@ -12,6 +12,7 @@
 #include "Credentials.h"
 #include "defines.h"                // pins and bitmasks
 
+// #include <WiFiManager.h>            // https://github.com/tzapu/WiFiManager
 #include <SLog.h>
 #include <AlpacaDebug.h>
 #include <AlpacaServer.h>
@@ -24,7 +25,9 @@ Dome domeDevice;
 Switch switchDevice;
 SafetyMonitor safemonDevice;
 
-#define VERSION "2.0.1"
+#define VERSION "1.0.0"
+
+// #define TEST_PROVISIONING
 
 // ASCOM Alpaca server with discovery
 AlpacaServer alpaca_server(ALPACA_MNG_SERVER_NAME, ALPACA_MNG_MANUFACTURE, ALPACA_MNG_MANUFACTURE_VERSION, ALPACA_MNG_LOCATION);
@@ -85,19 +88,57 @@ void init_IO( void );
 void setup()
 {
   Serial.begin(115200);
-  while(!Serial);
-
+  delay(1000);
   Serial.println("Serial OK");
+
+  init_IO();
+
+#ifdef TEST_PROVISIONING
+
+  uint32_t btn_ini = millis();
+  while((LOW == digitalRead(SR_IN_PIN_AP_SET)) &&  ((millis() - btn_ini) > 5000 )) {
+    delay(1);
+  }
+  // enter wifi provisioning
+  //if(HIGH == digitalRead(SR_IN_PIN_AP_SET))
+  {
+    WiFi.mode(WIFI_STA); // explicitly set mode, esp defaults to STA+AP
+    WiFiManager wm;
+    // setup menu to be shown in configuration page
+    const char * menu[] = {"wifi","setup","sep","exit"};
+    wm.setMenu(menu, sizeof(menu));
+
+    // reset settings - wipe stored credentials for testing that are stored by the esp library
+    // wm.resetSettings();
+
+    // Automatically connect using saved credentials,
+    // if connection fails, it starts an access point with the specified name ( "Alpaca_TSB_AP"),
+    // if empty will auto generate SSID, if password is blank it will be anonymous AP (wm.autoConnect())
+    // then goes into a blocking loop awaiting configuration and will return success result
+    wm.setConfigPortalTimeout(120);
+
+    bool res;
+    res = wm.autoConnect("Alpaca_TSB_AP","password"); // password protected ap
+
+    if(!res) {
+      Serial.println("Failed to connect");
+      delay(5000);
+      ESP.restart();
+    } 
+    else {
+      //if you get here you have connected to the WiFi    
+      Serial.println("connected...yeey :)");
+      delay(5000);
+      ESP.restart();
+    }
+  }
+  #endif
 
   // setup logging and WiFi
   g_Slog.Begin(Serial, 115200);
   SLOG_NOTICE_PRINTF("SLogDemo started\n");
 
   SLOG_INFO_PRINTF("Try to connect with WFi %s\n", DEFAULT_SSID);
-
-  init_IO();
-
-  SLOG_INFO_PRINTF("ESP32ALPACADeviceDemo started ...\n");
 
   WiFi.mode(WIFI_STA);
   WiFi.begin(DEFAULT_SSID, DEFAULT_PWD);
@@ -160,16 +201,12 @@ void loop()
 #endif
 
   alpaca_server.Loop();
-  delay(1);
 
   domeDevice.Loop();
-  delay(1);
 
   switchDevice.Loop();
-  delay(1);
 
   safemonDevice.Loop();
-  delay(1);
 
   if((millis() - tmr_shreg) > 100)                    // read shift register every 100ms
     _shift_reg_in = read_shift_register();

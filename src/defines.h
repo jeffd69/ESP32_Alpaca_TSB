@@ -5,7 +5,7 @@
   Description:    board definitions
 **************************************************************************************************/
 
-#define SYSLOG_HOST "192.168.1.68" // your SysLog-Host
+#define SYSLOG_HOST         "192.168.1.68" // your SysLog-Host
 
 #define SR_OUT_PIN_OE       15          // 595 shift register output enable
 #define SR_OUT_PIN_STCP     2           // output latch storage clock
@@ -23,7 +23,7 @@
 #define SR_IN_PIN_PL        19          // parallel load
 #define SR_IN_PIN_SDIN      4           // serial data in
 
-#define SR_IN_PIN_AP_SET    34          // net config pin
+#define SR_IN_PIN_AP_SET    34          // net config button pin
 #define SR_OUT_PIN_AP_LED   13          // net config LED
 
 // bit mask for output shif register 595
