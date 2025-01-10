@@ -41,6 +41,8 @@ private:
 	void AlpacaReadJson(JsonObject &root);
 	void AlpacaWriteJson(JsonObject &root);
 
+	void _dome_use_limit(bool use_lim) { _use_switch = use_lim; };
+
 	static const char *const k_shutter_state_str[5];
 
 public:
