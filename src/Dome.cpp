@@ -165,20 +165,18 @@ const bool Dome::_getSlewing()
 
 void Dome::AlpacaReadJson(JsonObject &root)
 {
-	DBG_JSON_PRINTFJ(SLOG_NOTICE, root, "BEGIN (root=<%s>) ...\n", _ser_json_);
+	DBG_JSON_PRINTFJ(SLOG_NOTICE, root, "DOME READ BEGIN (root=<%s>) ...\n", _ser_json_);
 	AlpacaDome::AlpacaReadJson(root);
 
 	if (JsonObject obj_config = root["DomeConfiguration"])
 	{
-		bool _us = obj_config["Use limit switches"] | _use_switch;
-		int32_t _to = obj_config["Shutter timeout"] | _timeout;
-		int32_t _oc = obj_config["Extend closing"] | _overclose;
+		bool _us = obj_config["Use_limit_switches"] | _use_switch;
+		int32_t _to = obj_config["Shutter_timeout"] | _timeout;
 
 		_use_switch = _us;
 		_timeout = _to;
-		_overclose = _oc;
 
-		SLOG_PRINTF(SLOG_INFO, "... END  _use_switch=%i _timeout=%i _overclose=%i\n", (int)_use_switch, _timeout, _overclose);
+		SLOG_PRINTF(SLOG_INFO, "... END  _use_switch=%s _timeout=%i\n", (_use_switch ? "true" : "false"), _timeout);
 	}
 	else
 	{
@@ -188,21 +186,19 @@ void Dome::AlpacaReadJson(JsonObject &root)
 
 void Dome::AlpacaWriteJson(JsonObject &root)
 {
-    SLOG_PRINTF(SLOG_NOTICE, "BEGIN ...\n");
+    SLOG_PRINTF(SLOG_NOTICE, "DOME WRITE BEGIN ...\n");
     AlpacaDome::AlpacaWriteJson(root);
 
     // Config
     JsonObject obj_config = root["DomeConfiguration"].to<JsonObject>();
-    obj_config["Use limit switches"] = _use_switch;
-    obj_config["Shutter timeout"] = _timeout;
-	obj_config["Extend closing"] = _overclose;
+    obj_config["Use_limit_switches"] = _use_switch;
+    obj_config["Shutter_timeout"] = _timeout;
 
-    // #add # for read only
-    JsonObject obj_states = root["#States"].to<JsonObject>();
-    obj_states["Shutter"] = k_shutter_state_str[(int)_shutter];
-	obj_states["Use limit switches"] = (_use_switch ? "true" : "false");
-    obj_states["Shutter timeout"] = _timeout;
-	obj_states["Extend closing"] = _overclose;
+    // add # before the name for read only
+    JsonObject obj_states = root["States"].to<JsonObject>();
+    obj_states["#Shutter"] = k_shutter_state_str[(int)_shutter];
+	obj_states["#Use_limit_switches"] = (_use_switch ? "true" : "false");
+    obj_states["#Shutter_timeout"] = _timeout;
 
     DBG_JSON_PRINTFJ(SLOG_NOTICE, root, "... END root=<%s>\n", _ser_json_);
 }

@@ -30,7 +30,6 @@ private:
 	bool _slew;							// true when shutter is moving
 	bool _use_switch;					// if true, use limit switches, else use timeout
 	int32_t _timeout;					// open/close timeout
-	int32_t _overclose;					// extra close time if _use_switch is true
 	int32_t _timer_ini;					// timer init of movement
 	int32_t _timer_end;					// timer init of movement
 

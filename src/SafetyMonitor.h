@@ -13,14 +13,14 @@ extern u_int8_t _safemon_inputs;
 class SafetyMonitor : public AlpacaSafetyMonitor
 {
 private:
-    bool _is_safe;
-    uint32_t _rain_delay;
-    uint32_t _power_delay;
+  bool _is_safe;
+  uint32_t _rain_delay;
+  uint32_t _power_delay;
 
-    const bool _getIsSafe();
+  const bool _getIsSafe();
 
-    void AlpacaReadJson(JsonObject &root);
-	void AlpacaWriteJson(JsonObject &root);
+  void AlpacaReadJson(JsonObject &root);
+  void AlpacaWriteJson(JsonObject &root);
 
 	static const char *const k_safemon_state_str[2];
 

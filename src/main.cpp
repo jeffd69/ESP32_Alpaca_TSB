@@ -32,43 +32,6 @@ SafetyMonitor safemonDevice;
 // ASCOM Alpaca server with discovery
 AlpacaServer alpaca_server(ALPACA_MNG_SERVER_NAME, ALPACA_MNG_MANUFACTURE, ALPACA_MNG_MANUFACTURE_VERSION, ALPACA_MNG_LOCATION);
 
-#ifdef TEST_RESTART
-// ========================================================================
-// SW Restart
-bool restart = false;                          // enable/disable
-uint32_t g_restart_start_time_ms = 0xFFFFFFFF; // Timer for countdown
-uint32_t const k_RESTART_DELAY_MS = 10000;     // Restart Delay
-
-/**
- * SetRestart
- */
-void ActivateRestart()
-{
-  restart = true;
-  g_restart_start_time_ms = millis();
-}
-
-/*
- */
-void checkForRestart()
-{
-  if (alpaca_server.GetResetRequest() || restart)
-  {
-    uint32_t timer_ms = millis() - g_restart_start_time_ms;
-    uint32_t coun_down_sec = (k_RESTART_DELAY_MS - timer_ms) / 1000;
-
-    if (timer_ms >= k_RESTART_DELAY_MS)
-    {
-      ESP.restart();
-    }
-  }
-  else
-  {
-    g_restart_start_time_ms = millis();
-  }
-}
-#endif
-
 uint16_t _shift_reg_in, _shift_reg_out, _prev_shift_reg_out;
 bool _dome_open_button, _dome_close_button, _dome_opened_switch, _dome_closed_switch;
 bool _dome_roof_open, _dome_roof_close;
@@ -154,7 +117,6 @@ void setup()
   snprintf(wifi_ipstr, sizeof(wifi_ipstr), "%03d.%03d.%03d.%03d", ip[0], ip[1], ip[2], ip[3]);
   SLOG_INFO_PRINTF("connected with %s\n", wifi_ipstr);
   
-  // g_Slog.Begin(String(SYSLOG_HOST), 514);
   // finalize logging setup
   g_Slog.Begin(alpaca_server.GetSyslogHost().c_str());
   SLOG_INFO_PRINTF("SYSLOG enabled and running log_lvl=%s enable_serial=%s\n", g_Slog.GetLvlMskStr().c_str(), alpaca_server.GetSerialLog() ? "true" : "false"); 
