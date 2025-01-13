@@ -168,17 +168,20 @@ void Dome::AlpacaReadJson(JsonObject &root)
 	DBG_JSON_PRINTFJ(SLOG_NOTICE, root, "DOME READ BEGIN (root=<%s>) ...\n", _ser_json_);
 	AlpacaDome::AlpacaReadJson(root);
 
-	if (JsonObject obj_config = root["DomeConfiguration"])
+	if (JsonObject obj_config = root["Dome_Configuration"])
 	{
-		//bool _us = obj_config["Use_limit_switches"] | _use_switch;
-		_use_switch = obj_config["Use_limit_switches"] | _use_switch;
-		_timeout = obj_config["Shutter_timeout"] | _timeout;
-		
-		// InitSwitchCanWrite(u, obj_config["CanWrite"] | GetSwitchCanWrite(u));
-		//_dome_use_limit(obj_config["Use_limit_switches"] | _use_switch);
+		uint32_t _us = (obj_config["Use_limit_switches"] | 1) == 0 ? false : true;
+		if((_us < 0) || (_us > 1)) {	// validate
+			_us = 0;
+		}
 
-		//_use_switch = _us;
-		//_timeout = _to;
+		uint32_t _to = obj_config["Shutter_timeout"] | _timeout;
+		if((_to < 1) || (_to > 300)) {
+			_to = 60;
+		}
+		
+		_use_switch = (_us == 0) ? false : true;
+		_timeout = _to;
 
 		SLOG_PRINTF(SLOG_INFO, "... END  _use_switch=%s _timeout=%i\n", (_use_switch ? "true" : "false"), _timeout);
 	}
@@ -194,15 +197,9 @@ void Dome::AlpacaWriteJson(JsonObject &root)
     AlpacaDome::AlpacaWriteJson(root);
 
     // Config
-    JsonObject obj_config = root["DomeConfiguration"].to<JsonObject>();
-    obj_config["Use_limit_switches"] = _use_switch;
+    JsonObject obj_config = root["Dome_Configuration"].to<JsonObject>();
+	obj_config["Use_limit_switches"] = _use_switch; // ? 1 : 0;
     obj_config["Shutter_timeout"] = _timeout;
 
-    // add # before the name for read only
-    JsonObject obj_states = root["States"].to<JsonObject>();
-    obj_states["#Shutter"] = k_shutter_state_str[(int)_shutter];
-	obj_states["#Use_limit_switches"] = _use_switch; //(_use_switch ? "true" : "false");
-    obj_states["#Shutter_timeout"] = _timeout;
-
-    DBG_JSON_PRINTFJ(SLOG_NOTICE, root, "... END root=<%s>\n", _ser_json_);
+    DBG_JSON_PRINTFJ(SLOG_NOTICE, root, "...DOME WRITE END root=<%s>\n", _ser_json_);
 }

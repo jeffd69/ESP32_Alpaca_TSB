@@ -37,10 +37,18 @@ void SafetyMonitor::AlpacaReadJson(JsonObject &root)
     DBG_JSON_PRINTFJ(SLOG_NOTICE, root, "SAFEMON READ BEGIN (root=<%s>) ...\n", _ser_json_);
     AlpacaSafetyMonitor::AlpacaReadJson(root);
 
-    if (JsonObject obj_config = root["SafetyMonitorConfiguration"])
+    if (JsonObject obj_config = root["SafetyMonitor_Configuration"])
     {
         int32_t _rd = obj_config["Rain_delay"] | _rain_delay;
 		int32_t _pd = obj_config["Power_off_delay"] | _power_delay;
+
+        if((_rd < 1) || (_rd > 60)){
+            _rd = 2;
+        }
+
+        if((_pd < 0) || (_pd > 600)){
+            _pd = 0;
+        }
 
         _rain_delay = _rd;
         _power_delay = _pd;
@@ -59,16 +67,17 @@ void SafetyMonitor::AlpacaWriteJson(JsonObject &root)
     AlpacaSafetyMonitor::AlpacaWriteJson(root);
 
     // Config
-    JsonObject obj_config = root["SafetyMonitorConfiguration"].to<JsonObject>();
+    JsonObject obj_config = root["SafetyMonitor_Configuration"].to<JsonObject>();
     obj_config["Rain_delay"] = _rain_delay;
 	obj_config["Power_off_delay"] = _power_delay;
 
+/*
     // #add # for read only
-    JsonObject obj_states = root["#States"].to<JsonObject>();
-    obj_states["Is_Safe"] = (_is_safe ? "SAFE" : "UNSAFE");
-    obj_states["Rain_delay"] = _rain_delay;
-	obj_states["Power_off_delay"] = _power_delay;
-
+    JsonObject obj_states = root["SafetyMonitor_States"].to<JsonObject>();
+    obj_states["#Is_Safe"] = (_is_safe ? "SAFE" : "UNSAFE");
+    obj_states["#Rain_delay"] = _rain_delay;
+	obj_states["#Power_off_delay"] = _power_delay;
+*/
     DBG_JSON_PRINTFJ(SLOG_NOTICE, root, "... END root=<%s>\n", _ser_json_);
 }
 

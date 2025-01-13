@@ -22,7 +22,8 @@ private:
     void AlpacaReadJson(JsonObject &root);
     void AlpacaWriteJson(JsonObject &root);
 
-    //SwitchDevice_t *_p_swtc;
+    uint16_t _num;
+    String _ciccio;
 
 #ifdef DEBUG_SWITCH
     void DebugSwitchDevice(uint32_t id);

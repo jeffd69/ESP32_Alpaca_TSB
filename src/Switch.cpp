@@ -120,23 +120,17 @@ void Switch::AlpacaReadJson(JsonObject &root)
 	AlpacaSwitch::AlpacaReadJson(root);
 
 	char title[32] = "";
-  if (JsonObject obj_config = root["Configuration"])
+  if (JsonObject obj_config = root["Switch_Configuration"])
   {
-      obj_config["Ciccio"];
-      obj_config["One"];
-      obj_config["Ics"];
-/*
+    char sw_name[kSwitchNameSize] = "";
     for (uint32_t u = 0; u < GetMaxSwitch(); u++)
     {
-
-      snprintf(title, sizeof(title), "Switch_%d", u);
-      Serial.print("R title "); Serial.println(title);
-      InitSwitchName(u, obj_config[title] | GetSwitchName(u));
-      DBG_JSON_PRINTFJ(SLOG_NOTICE, obj_config, "... title=%s obj_config=<%s> \n", title, _ser_json_);
+      snprintf(sw_name, sizeof(sw_name), "Switch_%d", u);
+      InitSwitchName(u, obj_config[sw_name] | GetSwitchName(u));
+      DBG_JSON_PRINTFJ(SLOG_NOTICE, obj_config, "... title=%s obj_config=<%s> \n", sw_name, _ser_json_);
     }
-*/
   }
-	SLOG_PRINTF(SLOG_NOTICE, "... END\n");
+	SLOG_PRINTF(SLOG_NOTICE, "...SWITCH READ END\n");
 }
 
 void Switch::AlpacaWriteJson(JsonObject &root)
@@ -144,50 +138,19 @@ void Switch::AlpacaWriteJson(JsonObject &root)
   DBG_JSON_PRINTFJ(SLOG_NOTICE, root, "SWITCH WRITE BEGIN root=%s ...\n", _ser_json_);
   AlpacaSwitch::AlpacaWriteJson(root);
 
-  char title[32] = "aaaa";
-  char descr[64] = "";
   // prepare Config
-  if (JsonObject obj_config = root["Configuration"])
+  JsonObject obj_config = root["Switch_Configuration"].to<JsonObject>();
+  char sw_name[kSwitchNameSize] = "";
+  for (uint32_t u = 0; u < GetMaxSwitch(); u++)
   {
-      obj_config["Ciccio"];
-      obj_config["One"];
-      obj_config["Ics"];
-/*
-    for (uint32_t u = 0; u < GetMaxSwitch(); u++)
-    {
-
-      snprintf(title, sizeof(title), "Switch_%d", u);
-      Serial.print("R title "); Serial.println(title);
-      InitSwitchName(u, obj_config[title] | GetSwitchName(u));
-    }
-*/
-      DBG_JSON_PRINTFJ(SLOG_NOTICE, obj_config, "... title=%s obj_config=<%s> \n", title, _ser_json_);
+    snprintf(sw_name, sizeof(sw_name), "Switch_%d", u);
+    obj_config[sw_name] = (String)GetSwitchName(u);
+    DBG_JSON_PRINTFJ(SLOG_NOTICE, obj_config, "... title=%s obj_config=<%s> \n", sw_name, _ser_json_);
   }
-
-  // Prepare states
-  // add # before the name for read only
-  if(JsonObject obj_state = root["States"])
-  {
-    obj_state["Ciccio"] = 22;
-    obj_state["One"] = 33;
-    obj_state["Ics"] = 44;
-  }
-  /*
-  {
-    for (uint32_t u = 0; u < GetMaxSwitch(); u++)
-    {
-      snprintf(title, sizeof(title), "Switch_%d", u);
-      snprintf(descr, sizeof(descr), "%s, %s, value %i", GetSwitchName(u), (GetSwitchCanWrite(u) ? "RW" : "R"), GetSwitchValue(u));
-
-      obj_state[title] | descr;
-      DBG_JSON_PRINTFJ(SLOG_NOTICE, obj_state, "... title=%s obj_config=<%s> \n", title, _ser_json_);
-    }
-  }  */
-
-  DBG_JSON_PRINTFJ(SLOG_NOTICE, root, "... END \"%s\"\n", _ser_json_);
+  DBG_JSON_PRINTFJ(SLOG_NOTICE, root, "...SWITCH WRITE END \"%s\"\n", _ser_json_);
 }
 
-/*
+/* ORIGINAL VERSION FROM PETER
 void Switch::AlpacaReadJson(JsonObject &root)
 {
 	DBG_JSON_PRINTFJ(SLOG_NOTICE, root, "BEGIN (root=<%s>) ...\n", _ser_json_);
