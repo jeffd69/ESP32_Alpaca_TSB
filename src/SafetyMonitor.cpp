@@ -10,6 +10,7 @@
 SafetyMonitor::SafetyMonitor() : AlpacaSafetyMonitor()
 {
     // constructor
+    _is_safe = true;
 }
 
 void SafetyMonitor::Begin()
@@ -20,15 +21,14 @@ void SafetyMonitor::Begin()
 void SafetyMonitor::Loop()
 {
     // TODO
-}
-
-const bool SafetyMonitor::_getIsSafe()
-{
     if( _safemon_inputs == 0 )
         _is_safe = true;
     else
         _is_safe = false;
-    
+}
+
+const bool SafetyMonitor::_getIsSafe()
+{
     return _is_safe;
 }
 
@@ -42,22 +42,22 @@ void SafetyMonitor::AlpacaReadJson(JsonObject &root)
         int32_t _rd = obj_config["Rain_delay"] | _rain_delay;
 		int32_t _pd = obj_config["Power_off_delay"] | _power_delay;
 
-        if((_rd < 1) || (_rd > 60)){
+        if((_rd < 1) || (_rd > 60)) {       // validate dalay on rain signal 1~60s
             _rd = 2;
         }
 
-        if((_pd < 0) || (_pd > 600)){
+        if((_pd < 0) || (_pd > 600)) {      // validate delay on power outage 0~600 (0 means not in use)
             _pd = 0;
         }
 
         _rain_delay = _rd;
         _power_delay = _pd;
 
-        SLOG_PRINTF(SLOG_INFO, "... END  _rain_delay=%i _power_delay=%i\n", (int)_rain_delay, (int)_power_delay);
+        SLOG_PRINTF(SLOG_INFO, "...SAFEMON READ END  _rain_delay=%i _power_delay=%i\n", (int)_rain_delay, (int)_power_delay);
     }
     else
     {
-        SLOG_PRINTF(SLOG_WARNING, "... END no configuration\n");
+        SLOG_PRINTF(SLOG_WARNING, "...SAFEMON READ END no configuration\n");
     }
 }
 
@@ -78,7 +78,7 @@ void SafetyMonitor::AlpacaWriteJson(JsonObject &root)
     obj_states["#Rain_delay"] = _rain_delay;
 	obj_states["#Power_off_delay"] = _power_delay;
 */
-    DBG_JSON_PRINTFJ(SLOG_NOTICE, root, "... END root=<%s>\n", _ser_json_);
+    DBG_JSON_PRINTFJ(SLOG_NOTICE, root, "...SAFEMON WRITE END root=<%s>\n", _ser_json_);
 }
 
 

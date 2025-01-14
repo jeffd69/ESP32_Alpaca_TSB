@@ -3,6 +3,9 @@
   Revised:        $Date: 2024-12-12$
   Revision:       $Revision: 01 $
   Description:    board definitions
+
+  idf.py partition-table
+  
 ************************************************************************************************* */
 
 #define SYSLOG_HOST         "192.168.1.68" // your SysLog-Host
@@ -27,7 +30,7 @@
 #define SR_OUT_PIN_AP_LED   13          // net config LED
 
 // bit mask for output shif register 595
-#define BIT_CLEAR           0           // 0b0000 0000 0000 0000
+#define BIT_OUT_CLEAR       0xff00      // 0b1111 1111 0000 0000
 
 #define BIT_OUT_0           0x0080      // 0bx000 0000 1000 0000
 #define BIT_OUT_1           0x0040      // 0bx000 0000 0100 0000

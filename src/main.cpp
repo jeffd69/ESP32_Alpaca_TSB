@@ -12,7 +12,7 @@
 #include "Credentials.h"
 #include "defines.h"                // pins and bitmasks
 
-// #include <WiFiManager.h>            // https://github.com/tzapu/WiFiManager
+#include <WiFiManager.h>         // https://github.com/tzapu/WiFiManager
 #include <SLog.h>
 #include <AlpacaDebug.h>
 #include <AlpacaServer.h>
@@ -33,10 +33,13 @@ SafetyMonitor safemonDevice;
 AlpacaServer alpaca_server(ALPACA_MNG_SERVER_NAME, ALPACA_MNG_MANUFACTURE, ALPACA_MNG_MANUFACTURE_VERSION, ALPACA_MNG_LOCATION);
 
 uint16_t _shift_reg_in, _shift_reg_out, _prev_shift_reg_out;
-bool _dome_open_button, _dome_close_button, _dome_opened_switch, _dome_closed_switch;
-bool _dome_roof_open, _dome_roof_close;
+bool _dome_open_button, _dome_close_button, _dome_switch_opened, _dome_switch_closed;
+bool _dome_relay_open, _dome_relay_close;
 
-uint8_t _safemon_inputs;
+uint8_t _safemon_inputs;                  // status of safety monitor 0->safe
+uint32_t tmr_rain_ini, tmr_rain_len;      // timers for rain delay and alarm duration
+uint32_t tmr_power_ini, tmr_power_len;    // power
+uint32_t tmr_wstat_ini, tmr_wstat_len;    // weather station
 
 bool _sw_in[8], _sw_out[8];
 uint8_t _sw_pwm[4];
@@ -50,13 +53,17 @@ void init_IO( void );
 
 void setup()
 {
+  /*
   Serial.begin(115200);
   delay(1000);
   Serial.println("Serial OK");
 
   init_IO();
-
+*/
 #ifdef TEST_PROVISIONING
+
+  pinMode(SR_IN_PIN_AP_SET, INPUT_PULLUP);      // net configuration button
+  pinMode(SR_OUT_PIN_AP_LED, OUTPUT);           // net configuration LED
 
   uint32_t btn_ini = millis();
   while((LOW == digitalRead(SR_IN_PIN_AP_SET)) &&  ((millis() - btn_ini) > 5000 )) {
@@ -75,46 +82,62 @@ void setup()
     // wm.resetSettings();
 
     // Automatically connect using saved credentials,
-    // if connection fails, it starts an access point with the specified name ( "Alpaca_TSB_AP"),
+    // if connection fails, it starts an access point with the specified name ("Alpaca_TSB_AP" and password "alpaca"),
     // if empty will auto generate SSID, if password is blank it will be anonymous AP (wm.autoConnect())
     // then goes into a blocking loop awaiting configuration and will return success result
     wm.setConfigPortalTimeout(120);
 
     bool res;
-    res = wm.autoConnect("Alpaca_TSB_AP","password"); // password protected ap
+    res = wm.autoConnect("Alpaca_TSB_AP","alpaca");   // password protected ap
 
     if(!res) {
       Serial.println("Failed to connect");
-      delay(5000);
-      ESP.restart();
+      //ESP.restart();
     } 
     else {
       //if you get here you have connected to the WiFi    
       Serial.println("connected...yeey :)");
-      delay(5000);
-      ESP.restart();
     }
+
+    wm.disconnect();
   }
   #endif
 
+  Serial.begin(115200);
+  delay(1000);
+  Serial.println("Serial OK");
+
+  init_IO();
+
   // setup logging and WiFi
   g_Slog.Begin(Serial, 115200);
-  SLOG_NOTICE_PRINTF("SLogDemo started\n");
+  SLOG_NOTICE_PRINTF("SLog started\n");
 
-  SLOG_INFO_PRINTF("Try to connect with WFi %s\n", DEFAULT_SSID);
+  SLOG_INFO_PRINTF("Try to connect with WiFi\n");
 
-  WiFi.mode(WIFI_STA);
-  WiFi.begin(DEFAULT_SSID, DEFAULT_PWD);
 
-  while (WiFi.status() != WL_CONNECTED)
+  #ifdef TEST_PROVISIONING
+    WiFi.begin();
+  #else
+    WiFi.mode(WIFI_STA);
+    WiFi.begin(DEFAULT_SSID, DEFAULT_PWD);
+  #endif
+
+  uint16_t _attempts = 0;
+  while ((WiFi.status() != WL_CONNECTED) && (_attempts < 60))
   {
     SLOG_INFO_PRINTF("Connecting to WiFi ..\n");
     delay(1000);
+    _attempts++;
+  }
+
+  if(!(_attempts < 60)) {
+    ESP.restart();
   }
   
   IPAddress ip = WiFi.localIP();
-  char wifi_ipstr[32] = "xxx.yyy.zzz.www";
-  snprintf(wifi_ipstr, sizeof(wifi_ipstr), "%03d.%03d.%03d.%03d", ip[0], ip[1], ip[2], ip[3]);
+  char wifi_ipstr[32]; // = "xxx.yyy.zzz.www";
+  snprintf(wifi_ipstr, sizeof(wifi_ipstr), "%d.%d.%d.%d", ip[0], ip[1], ip[2], ip[3]);
   SLOG_INFO_PRINTF("connected with %s\n", wifi_ipstr);
   
   // finalize logging setup
@@ -141,19 +164,17 @@ void setup()
   alpaca_server.RegisterCallbacks();
   alpaca_server.LoadSettings();
 
-  /* finalize logging setup
-  g_Slog.Begin(alpaca_server.GetSyslogHost().c_str());
-  SLOG_INFO_PRINTF("SYSLOG enabled and running log_lvl=%s enable_serial=%s\n", g_Slog.GetLvlMskStr().c_str(), alpaca_server.GetSerialLog() ? "true" : "false"); 
-  g_Slog.SetLvlMsk(alpaca_server.GetLogLvl());
-  g_Slog.SetEnableSerial(alpaca_server.GetSerialLog());
-  */
-
   _shift_reg_in = 0;
   _shift_reg_out = 0;
   _prev_shift_reg_out = 0;
 
   tmr_LED = millis();
   tmr_shreg = millis();
+
+  _safemon_inputs = 0;
+  tmr_rain_ini = 0; tmr_rain_len =0 ;
+  tmr_power_ini = 0; tmr_power_len = 0; 
+  tmr_wstat_ini = 0; tmr_wstat_len = 0; 
 }
 
 void loop()
@@ -170,32 +191,33 @@ void loop()
 
   safemonDevice.Loop();
 
-  if((millis() - tmr_shreg) > 100)                    // read shift register every 100ms
+  if((millis() - tmr_shreg) > 200) {                  // read shift register every 200ms
     _shift_reg_in = read_shift_register();
+  }
 
   if( domeDevice.GetNumberOfConnectedClients() > 0 )
   {
-    _shift_reg_out |= BIT_DOME;             // Dome connected LED ON
+    _shift_reg_out |= BIT_DOME;                       // Dome connected LED ON
 
-    _dome_close_button = false;             // if a client is connected, prevent manual open/close
+    _dome_close_button = false;                       // if a client is connected, prevent manual open/close
     _dome_open_button = false;
 
-    if( _shift_reg_in & BIT_FC_CLOSE )      // handle close switch input
-      _dome_closed_switch = true;
+    if( _shift_reg_in & BIT_FC_CLOSE )                // handle close switch input
+      _dome_switch_closed = true;
     else
-      _dome_closed_switch = false;
+      _dome_switch_closed = false;
 
-    if( _shift_reg_in & BIT_FC_OPEN )       // handle open switch input
-      _dome_opened_switch = true;
+    if( _shift_reg_in & BIT_FC_OPEN )                 // handle open switch input
+      _dome_switch_opened = true;
     else 
-      _dome_opened_switch = false;
+      _dome_switch_opened = false;
 
-    if( _dome_roof_close )                  // handle close relay bit in the shift register
+    if( _dome_relay_close )                            // handle close relay bit in the shift register
       _shift_reg_out |= BIT_ROOF_CLOSE;
     else
       _shift_reg_out &= ~BIT_ROOF_CLOSE;
     
-    if( _dome_roof_open )                   // handle open relay bit in the shift register
+    if( _dome_relay_open )                             // handle open relay bit in the shift register
       _shift_reg_out |= BIT_ROOF_OPEN;
     else
       _shift_reg_out &= ~BIT_ROOF_OPEN;
@@ -205,6 +227,7 @@ void loop()
   {
     _shift_reg_out &= ~BIT_DOME;            // Dome connected LED OFF
 
+    // set flags according to bits in shift registers
     if( _shift_reg_in & BIT_BUTTON_CLOSE)   // if no clients connected, handle manual close button
       _dome_close_button = true;
     else
@@ -216,24 +239,83 @@ void loop()
       _dome_open_button = false;
     
     if( _shift_reg_in & BIT_FC_CLOSE )      // handle close switch
-      _dome_closed_switch = true;
+      _dome_switch_closed = true;
     else
-      _dome_closed_switch = false;
+      _dome_switch_closed = false;
 
     if( _shift_reg_in & BIT_FC_OPEN )       // handle open switch
-      _dome_opened_switch = true;
+      _dome_switch_opened = true;
     else 
-      _dome_opened_switch = false;
+      _dome_switch_opened = false;
     
-    if( _dome_roof_close )                  // set close relay bit in the shift register
+    // set relays if conditions are met
+    if( _dome_close_button && !_dome_open_button && !_dome_switch_closed ) {
+      _dome_relay_close = true;
+      _dome_relay_open = false;
+    }
+    else if( !_dome_close_button && _dome_open_button && !_dome_switch_opened ) {
+      _dome_relay_close = false;
+      _dome_relay_open = true;
+    } else{
+      _dome_relay_close = false;
+      _dome_relay_open = false;
+    }
+
+    if( _dome_relay_close )                  // set close relay bit in the shift register
       _shift_reg_out |= BIT_ROOF_CLOSE;
     else
       _shift_reg_out &= ~BIT_ROOF_CLOSE;
     
-    if( _dome_roof_open )                   // set open relay bit in the shift register
+    if( _dome_relay_open )                   // set open relay bit in the shift register
       _shift_reg_out |= BIT_ROOF_OPEN;
     else
       _shift_reg_out &= ~BIT_ROOF_OPEN;
+  }
+
+  if( safemonDevice.GetNumberOfConnectedClients() > 0 )
+  {
+    _shift_reg_out |= BIT_SAFEMON;                    // SafetyMonitor connected LED ON
+
+    if(( _shift_reg_in & BIT_SAFE_RAIN ) != 0) {
+      if( tmr_rain_ini != 0 ) {
+        tmr_rain_ini = millis();
+        tmr_rain_len = 1000 * safemonDevice.getRainDelay();
+      }
+    } else {
+      tmr_rain_ini = 0;
+    }
+
+    if(( tmr_rain_ini != 0 ) && ((millis() - tmr_rain_ini) > tmr_rain_len))    // if alarm persists for rain_delay, set UNSAFE
+      _safemon_inputs |= SAFEMON_RAIN_BIT;
+    else
+      _safemon_inputs &= ~SAFEMON_RAIN_BIT;
+
+    if( safemonDevice.getPowerDelay() > 0 ) {                 // enter only if power delay is > 0
+      if(( _shift_reg_in & BIT_SAFE_POWER ) != 0) {
+        if( tmr_power_ini != 0 ) {
+          tmr_power_ini = millis();
+          tmr_power_len = 1000 * safemonDevice.getPowerDelay();
+        }
+      }
+      else
+      {
+        tmr_power_ini = 0;
+      }
+    
+      if((tmr_power_ini != 0) && ((millis() - tmr_power_ini) > tmr_power_len))
+        _safemon_inputs |= SAFEMON_POWER_BIT;
+      else
+        _safemon_inputs &= ~SAFEMON_POWER_BIT;
+    }
+    else
+    {
+      _safemon_inputs &= ~SAFEMON_POWER_BIT;
+    }
+  }
+  else
+  {
+    _shift_reg_out &= ~BIT_SAFEMON;                   // SafetyMonitor connected LED OFF
+    _safemon_inputs = 0;
   }
 
   if( switchDevice.GetNumberOfConnectedClients() > 0)
@@ -245,7 +327,7 @@ void loop()
 
     for(i=0; i<8; i++)
     {
-      if((_shift_reg_in & i) != 0)                // set _sw_in[] according to shift register inputs
+      if((_shift_reg_in & (1 << i) != 0))                // set _sw_in[] according to shift register inputs
         _sw_in[i] = true;
       else
         _sw_in[i] = false;
@@ -260,11 +342,11 @@ void loop()
     {
       p = ((uint16_t)_sw_pwm[i] * 255) / 100;
 
-      if( p == 0)                                 // set PWM pin to 0
+      if( p == 0)                                     // set PWM pin to 0
         digitalWrite(_sw_pwm_pins[i], LOW);
-      else if( p == 255)                          // set PWM pin to 1
+      else if( p == 255)                              // set PWM pin to 1
         digitalWrite(_sw_pwm_pins[i], HIGH);
-      else                                        // set PWM value
+      else                                            // set PWM value
         analogWrite(_sw_pwm_pins[i], (int)p);
     }
   }
@@ -272,33 +354,21 @@ void loop()
   {
     uint32_t i;
 
-    _shift_reg_out &= ~BIT_SWITCH;                // Switch connected LED OFF
-
+    _shift_reg_out &= ~BIT_SWITCH;                    // Switch connected LED OFF
+    _shift_reg_out &= BIT_OUT_CLEAR;                  // clear all OUT bits
     for(i=0; i<8; i++)
     {
-      _shift_reg_out &= ~(BIT_OUT_0 >> i);        // clear relay bits
-      _sw_in[i] = false;                          // set input to false
+      _sw_out[i] = false;                             // clear all out
+      _sw_in[i] = false;                              // set input to false
     }
 
     for(i=0; i<4; i++)
     {
-      digitalWrite(_sw_pwm_pins[i], LOW);         // set PWM pin to 0
+      _sw_pwm[i] = 0;                                 // clear all PWMs
+      digitalWrite(_sw_pwm_pins[i], LOW);             // set PWM pin to 0
     }
   }
 
-  if( safemonDevice.GetNumberOfConnectedClients() > 0 )
-  {
-    _shift_reg_out |= BIT_SAFEMON;                    // SafetyMonitor connected LED ON
-
-    _safemon_inputs = (( _shift_reg_in & BIT_SAFE_RAIN ) == 0 ) ? 0 : 1;
-    _safemon_inputs += (( _shift_reg_in & BIT_SAFE_POWER ) == 0 ) ? 0 : 2;
-
-  }
-  else
-  {
-    _shift_reg_out &= ~BIT_SAFEMON;                   // SafetyMonitor connected LED OFF
-    _safemon_inputs = 0;
-  }
 
   if(( millis() - tmr_LED ) < 1000 )                  // blink CPU OK LED
   {
@@ -388,24 +458,24 @@ void write_shift_register( uint16_t value )
 
 void init_IO( void )
 {
-  pinMode(SR_OUT_PIN_OE, OUTPUT);       // output enable
-  pinMode(SR_OUT_PIN_STCP, OUTPUT);     // storage clock pulse
-  pinMode(SR_OUT_PIN_MR, OUTPUT);       // master reset
-  pinMode(SR_OUT_PIN_SHCP, OUTPUT);     // shift register clock pulse
-  pinMode(SR_OUT_PIN_SDOUT, OUTPUT);    // serial data out
+  pinMode(SR_OUT_PIN_OE, OUTPUT);             // output enable
+  pinMode(SR_OUT_PIN_STCP, OUTPUT);           // storage clock pulse
+  pinMode(SR_OUT_PIN_MR, OUTPUT);             // master reset
+  pinMode(SR_OUT_PIN_SHCP, OUTPUT);           // shift register clock pulse
+  pinMode(SR_OUT_PIN_SDOUT, OUTPUT);          // serial data out
 
   pinMode(SR_OUT_PWM0, OUTPUT);
   pinMode(SR_OUT_PWM1, OUTPUT);
   pinMode(SR_OUT_PWM2, OUTPUT);
   pinMode(SR_OUT_PWM3, OUTPUT);
 
-  pinMode(SR_IN_PIN_CE, OUTPUT);        // chip enable
-  pinMode(SR_IN_PIN_CP, OUTPUT);        // clock pulse
-  pinMode(SR_IN_PIN_PL, OUTPUT);        // parallel latch
-  pinMode(SR_IN_PIN_SDIN, INPUT);       // serial data in
+  pinMode(SR_IN_PIN_CE, OUTPUT);                // chip enable
+  pinMode(SR_IN_PIN_CP, OUTPUT);                // clock pulse
+  pinMode(SR_IN_PIN_PL, OUTPUT);                // parallel latch
+  pinMode(SR_IN_PIN_SDIN, INPUT);               // serial data in
 
-  pinMode(SR_IN_PIN_AP_SET, INPUT);     // net configuration button
-  pinMode(SR_OUT_PIN_AP_LED, OUTPUT);   // net configuration LED
+  pinMode(SR_IN_PIN_AP_SET, INPUT_PULLUP);      // net configuration button
+  pinMode(SR_OUT_PIN_AP_LED, OUTPUT);           // net configuration LED
   
   digitalWrite(SR_OUT_PIN_OE, LOW);
   digitalWrite(SR_OUT_PIN_STCP, LOW);

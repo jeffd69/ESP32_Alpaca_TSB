@@ -71,12 +71,12 @@ void Switch::Loop()
   // copy inputs to AlpacaSwitch::_p_switch_devices
   for(int i=0; i<8; i++)
   {
-    if(_sw_in[i])                           // set input value to
+    if(_sw_in[i])                             // set input value to AlpacaSwitch::_p_switch_devices[] array. Value is read from shift register
       AlpacaSwitch::SetSwitch(i, true);
     else
       AlpacaSwitch::SetSwitch(i, false);
   
-    if( AlpacaSwitch::GetValue(i + 8) )
+    if( AlpacaSwitch::GetValue(i + 8) )       // set OUTs and PWMs to HW
       _sw_out[i] = true;
     else
       _sw_out[i] = false;
@@ -84,7 +84,7 @@ void Switch::Loop()
 
   for(int i=0; i<4; i++)
   {
-    _sw_pwm[i + 16] = AlpacaSwitch::GetSwitchValue(i + 16);
+    _sw_pwm[i + 16] = (uint8_t)AlpacaSwitch::GetSwitchValue(i + 16);
   }
 }
 
@@ -97,8 +97,15 @@ const bool Switch::_writeSwitchValue(uint32_t id, double value)
   bool result = false; // wrong id or invalid value
 
   // TODO check id
-  if((id < 8) || (id > (k_num_of_switch_devices-1)))
+  if(id < 8) {
+    SLOG_WARNING_PRINTF("WARNING. Attempt to write to a read-only switch.")
     return false;
+  }
+
+  if(id > (k_num_of_switch_devices-1)) {
+    SLOG_WARNING_PRINTF("WARNING. Invalid switch ID.")
+    return false;
+  }
 
   if((id > 7 ) && ( id < 16 ))
     _sw_out[id - 8] = (value != 0 ? true : false);
@@ -114,6 +121,7 @@ const bool Switch::_writeSwitchValue(uint32_t id, double value)
   return result;
 }
 
+// read settings from flash
 void Switch::AlpacaReadJson(JsonObject &root)
 {
 	DBG_JSON_PRINTFJ(SLOG_NOTICE, root, "SWITCH READ BEGIN (root=<%s>) ...\n", _ser_json_);
@@ -133,6 +141,7 @@ void Switch::AlpacaReadJson(JsonObject &root)
 	SLOG_PRINTF(SLOG_NOTICE, "...SWITCH READ END\n");
 }
 
+// persist settings to flash
 void Switch::AlpacaWriteJson(JsonObject &root)
 {
   DBG_JSON_PRINTFJ(SLOG_NOTICE, root, "SWITCH WRITE BEGIN root=%s ...\n", _ser_json_);

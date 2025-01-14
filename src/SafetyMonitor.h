@@ -8,6 +8,9 @@
 #pragma once
 #include "AlpacaSafetyMonitor.h"
 
+#define SAFEMON_RAIN_BIT        1
+#define SAFEMON_POWER_BIT       2
+
 extern u_int8_t _safemon_inputs;
 
 class SafetyMonitor : public AlpacaSafetyMonitor
@@ -28,5 +31,7 @@ public:
 	SafetyMonitor();
 	void Begin();
 	void Loop();
+  uint32_t getRainDelay() {return _rain_delay;}
+  uint32_t getPowerDelay() {return _power_delay;}
 
 };
