@@ -8,7 +8,7 @@
   
 ************************************************************************************************* */
 
-#define SYSLOG_HOST         "192.168.1.68" // your SysLog-Host
+#define SYSLOG_HOST         "0.0.0.0"   // your SysLog-Host
 
 #define SR_OUT_PIN_OE       15          // 595 shift register output enable
 #define SR_OUT_PIN_STCP     2           // output latch storage clock
@@ -16,18 +16,21 @@
 #define SR_OUT_PIN_SHCP     14          // shift register serial clock
 #define SR_OUT_PIN_SDOUT    27          // serial data out
 
-#define SR_OUT_PWM0         32          // PWM channels
-#define SR_OUT_PWM1         33
-#define SR_OUT_PWM2         25
-#define SR_OUT_PWM3         26
+#define OUT_PIN_PWM0        32          // PWM channels
+#define OUT_PIN_PWM1        33
+#define OUT_PIN_PWM2        25
+#define OUT_PIN_PWM3        26
 
 #define SR_IN_PIN_CE        5           // 165 shift register chip enable
 #define SR_IN_PIN_CP        18          // clock
 #define SR_IN_PIN_PL        19          // parallel load
 #define SR_IN_PIN_SDIN      4           // serial data in
 
-#define SR_IN_PIN_AP_SET    34          // net config button pin
-#define SR_OUT_PIN_AP_LED   13          // net config LED
+#define IN_PIN_AP_SET       34          // net config button pin
+#define OUT_PIN_AP_LED      13          // net config LED
+
+#define IN_PIN_RX1          16          // usart RX from weather station
+#define OUT_PIN_TX1         17          // usart TX to weather station
 
 // bit mask for output shif register 595
 #define BIT_OUT_CLEAR       0xff00      // 0b1111 1111 0000 0000

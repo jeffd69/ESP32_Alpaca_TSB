@@ -12,7 +12,7 @@
 #include "Credentials.h"
 #include "defines.h"                // pins and bitmasks
 
-#include <WiFiManager.h>         // https://github.com/tzapu/WiFiManager
+#include <WiFiManager.h>            // https://github.com/tzapu/WiFiManager
 #include <SLog.h>
 #include <AlpacaDebug.h>
 #include <AlpacaServer.h>
@@ -43,138 +43,33 @@ uint32_t tmr_wstat_ini, tmr_wstat_len;    // weather station
 
 bool _sw_in[8], _sw_out[8];
 uint8_t _sw_pwm[4];
-uint8_t _sw_pwm_pins[4] = {SR_OUT_PWM0, SR_OUT_PWM1, SR_OUT_PWM2, SR_OUT_PWM3};
+uint8_t _sw_pwm_pins[4] = {OUT_PIN_PWM0, OUT_PIN_PWM1, OUT_PIN_PWM2, OUT_PIN_PWM3};
 
 uint32_t tmr_LED, tmr_shreg;
 
 uint16_t read_shift_register( void );
 void write_shift_register( uint16_t value );
-void init_IO( void );
+void init_IO(void);
+void provisioning(void);
+void normal_boot(void);
 
 void setup()
 {
-  /*
-  Serial.begin(115200);
-  delay(1000);
-  Serial.println("Serial OK");
+  pinMode(IN_PIN_AP_SET, INPUT);             // net configuration button (no pullup on chip)
+  pinMode(OUT_PIN_AP_LED, OUTPUT);           // net configuration LED
+  digitalWrite(OUT_PIN_AP_LED, HIGH);        // turn LED OFF
+  delay(100);
 
-  init_IO();
-*/
-#ifdef TEST_PROVISIONING
-
-  pinMode(SR_IN_PIN_AP_SET, INPUT_PULLUP);      // net configuration button
-  pinMode(SR_OUT_PIN_AP_LED, OUTPUT);           // net configuration LED
-
-  uint32_t btn_ini = millis();
-  while((LOW == digitalRead(SR_IN_PIN_AP_SET)) &&  ((millis() - btn_ini) > 5000 )) {
-    delay(1);
-  }
-  // enter wifi provisioning
-  //if(HIGH == digitalRead(SR_IN_PIN_AP_SET))
-  {
-    WiFi.mode(WIFI_STA); // explicitly set mode, esp defaults to STA+AP
-    WiFiManager wm;
-    // setup menu to be shown in configuration page
-    const char * menu[] = {"wifi","setup","sep","exit"};
-    wm.setMenu(menu, sizeof(menu));
-
-    // reset settings - wipe stored credentials for testing that are stored by the esp library
-    // wm.resetSettings();
-
-    // Automatically connect using saved credentials,
-    // if connection fails, it starts an access point with the specified name ("Alpaca_TSB_AP" and password "alpaca"),
-    // if empty will auto generate SSID, if password is blank it will be anonymous AP (wm.autoConnect())
-    // then goes into a blocking loop awaiting configuration and will return success result
-    wm.setConfigPortalTimeout(120);
-
-    bool res;
-    res = wm.autoConnect("Alpaca_TSB_AP","alpaca");   // password protected ap
-
-    if(!res) {
-      Serial.println("Failed to connect");
-      //ESP.restart();
-    } 
-    else {
-      //if you get here you have connected to the WiFi    
-      Serial.println("connected...yeey :)");
-    }
-
-    wm.disconnect();
-  }
-  #endif
-
-  Serial.begin(115200);
-  delay(1000);
-  Serial.println("Serial OK");
-
-  init_IO();
-
-  // setup logging and WiFi
-  g_Slog.Begin(Serial, 115200);
-  SLOG_NOTICE_PRINTF("SLog started\n");
-
-  SLOG_INFO_PRINTF("Try to connect with WiFi\n");
-
-
-  #ifdef TEST_PROVISIONING
-    WiFi.begin();
-  #else
-    WiFi.mode(WIFI_STA);
-    WiFi.begin(DEFAULT_SSID, DEFAULT_PWD);
-  #endif
-
-  uint16_t _attempts = 0;
-  while ((WiFi.status() != WL_CONNECTED) && (_attempts < 60))
-  {
-    SLOG_INFO_PRINTF("Connecting to WiFi ..\n");
+  if( LOW == digitalRead(IN_PIN_AP_SET)) {
+    digitalWrite(OUT_PIN_AP_LED, LOW);     // turn LED ON
     delay(1000);
-    _attempts++;
+    if( LOW == digitalRead(IN_PIN_AP_SET)) {
+      Serial.println("Entering WiFi provisioning mode.");
+      provisioning();
+    }
   }
 
-  if(!(_attempts < 60)) {
-    ESP.restart();
-  }
-  
-  IPAddress ip = WiFi.localIP();
-  char wifi_ipstr[32]; // = "xxx.yyy.zzz.www";
-  snprintf(wifi_ipstr, sizeof(wifi_ipstr), "%d.%d.%d.%d", ip[0], ip[1], ip[2], ip[3]);
-  SLOG_INFO_PRINTF("connected with %s\n", wifi_ipstr);
-  
-  // finalize logging setup
-  g_Slog.Begin(alpaca_server.GetSyslogHost().c_str());
-  SLOG_INFO_PRINTF("SYSLOG enabled and running log_lvl=%s enable_serial=%s\n", g_Slog.GetLvlMskStr().c_str(), alpaca_server.GetSerialLog() ? "true" : "false"); 
-  g_Slog.SetLvlMsk(alpaca_server.GetLogLvl());
-  g_Slog.SetEnableSerial(alpaca_server.GetSerialLog());
-
-  // setup ESP32AlpacaDevices
-  // 1. Init AlpacaServer
-  // 2. Init and add devices
-  // 3. Finalize AlpacaServer
-  alpaca_server.Begin();
-
-  domeDevice.Begin();
-  alpaca_server.AddDevice(&domeDevice);
-
-  switchDevice.Begin();
-  alpaca_server.AddDevice(&switchDevice);
-
-  safemonDevice.Begin();
-  alpaca_server.AddDevice(&safemonDevice);
-
-  alpaca_server.RegisterCallbacks();
-  alpaca_server.LoadSettings();
-
-  _shift_reg_in = 0;
-  _shift_reg_out = 0;
-  _prev_shift_reg_out = 0;
-
-  tmr_LED = millis();
-  tmr_shreg = millis();
-
-  _safemon_inputs = 0;
-  tmr_rain_ini = 0; tmr_rain_len =0 ;
-  tmr_power_ini = 0; tmr_power_len = 0; 
-  tmr_wstat_ini = 0; tmr_wstat_len = 0; 
+  normal_boot();
 }
 
 void loop()
@@ -191,7 +86,8 @@ void loop()
 
   safemonDevice.Loop();
 
-  if((millis() - tmr_shreg) > 200) {                  // read shift register every 200ms
+  if((millis() - tmr_shreg) > 100) {                  // read shift register every 100ms
+    tmr_shreg = millis();
     _shift_reg_in = read_shift_register();
   }
 
@@ -369,6 +265,16 @@ void loop()
     }
   }
 
+  if((millis() - tmr_shreg) > 100)                    // write shift register every 100ms
+  {
+    tmr_shreg = millis();
+
+    if( _shift_reg_out != _prev_shift_reg_out )       // write only if changed
+    {
+      _prev_shift_reg_out = _shift_reg_out;
+      write_shift_register( _shift_reg_out );
+    }
+  }
 
   if(( millis() - tmr_LED ) < 1000 )                  // blink CPU OK LED
   {
@@ -382,16 +288,124 @@ void loop()
     tmr_LED = millis();
   }
 
-  if((millis() - tmr_shreg) > 100)                    // write shift register every 100ms
-  {
-    tmr_shreg = millis();
+}
 
-    if( _shift_reg_out != _prev_shift_reg_out )       // write only if changed
-    {
-      _prev_shift_reg_out = _shift_reg_out;
-      write_shift_register( _shift_reg_out );
+// if wifi is not configured, setup WiFiManager to configure via web
+void provisioning()
+{
+  WiFi.mode(WIFI_STA); // explicitly set mode, esp defaults to STA+AP
+  Serial.begin(115200);
+
+  //WiFiManager, Local intialization. Once its business is done, there is no need to keep it around
+  WiFiManager wm;
+
+  // setup menu to be shown in configuration page
+  const char * menu[] = {"wifi","setup","sep","exit"};
+  wm.setMenu(menu, sizeof(menu));
+
+  Serial.println("Keep button pressed for 5s to reset WiFi settings.");
+  delay(5000);
+  if( LOW == digitalRead(IN_PIN_AP_SET))
+  {
+    Serial.println("Stored AP settings erased!");
+  // reset settings - wipe stored credentials that are stored by the esp library (for testing)
+    wm.resetSettings();
+    for(int i=0; i< 10; i++){
+      digitalWrite(OUT_PIN_AP_LED, HIGH);         // turn LED OFF
+      delay(50);
+      digitalWrite(OUT_PIN_AP_LED, LOW);          // turn LED ON
+      delay(50);
     }
   }
+
+  // Automatically connect using saved credentials,
+  // if connection fails, it starts an access point with the specified name ( "Alpaca_TSB_AP")
+  wm.setConfigPortalTimeout(300);
+
+  bool res;
+  res = wm.autoConnect("Alpaca_TSB_AP","password");     // password protected ap
+
+  if(!res) {
+    Serial.println("Failed to connect");
+    ESP.restart();
+  } 
+  else {
+    //if you get here you have connected to the WiFi    
+    Serial.println("connected...yeey :)");
+  }
+
+  delay(1000);
+  digitalWrite(OUT_PIN_AP_LED, HIGH);        // turn LED OFF
+  Serial.println("End of provisioning!");
+}
+
+void normal_boot()
+{
+  Serial.begin(115200);
+  delay(1000);
+  Serial.println("Serial OK");
+
+  init_IO();
+  // setup logging and WiFi
+  g_Slog.Begin(Serial, 115200);
+  SLOG_NOTICE_PRINTF("SLog started\n");
+  SLOG_INFO_PRINTF("Try to connect with WiFi\n");
+
+  WiFi.mode(WIFI_STA);
+  WiFi.begin(); // (DEFAULT_SSID, DEFAULT_PWD);
+
+  uint16_t _attempts = 0;
+  while ((WiFi.status() != WL_CONNECTED) && (_attempts < 60))
+  {
+    SLOG_INFO_PRINTF("Connecting to WiFi ..\n");
+    delay(1000);
+    _attempts++;
+  }
+
+  if(!(_attempts < 60)) {
+    ESP.restart();
+  }
+  
+  IPAddress ip = WiFi.localIP();
+  char wifi_ipstr[32]; // = "xxx.yyy.zzz.www";
+  snprintf(wifi_ipstr, sizeof(wifi_ipstr), "%d.%d.%d.%d", ip[0], ip[1], ip[2], ip[3]);
+  SLOG_INFO_PRINTF("connected with %s\n", wifi_ipstr);
+  
+  // finalize logging setup
+  g_Slog.Begin(alpaca_server.GetSyslogHost().c_str());
+  SLOG_INFO_PRINTF("SYSLOG enabled and running log_lvl=%s enable_serial=%s\n", g_Slog.GetLvlMskStr().c_str(), alpaca_server.GetSerialLog() ? "true" : "false"); 
+  g_Slog.SetLvlMsk(alpaca_server.GetLogLvl());
+  g_Slog.SetEnableSerial(alpaca_server.GetSerialLog());
+
+  // setup ESP32AlpacaDevices
+  // 1. Init AlpacaServer
+  // 2. Init and add devices
+  // 3. Finalize AlpacaServer
+  alpaca_server.Begin();
+
+  domeDevice.Begin();
+  alpaca_server.AddDevice(&domeDevice);
+
+  switchDevice.Begin();
+  alpaca_server.AddDevice(&switchDevice);
+
+  safemonDevice.Begin();
+  alpaca_server.AddDevice(&safemonDevice);
+
+  alpaca_server.RegisterCallbacks();
+  alpaca_server.LoadSettings();
+
+  _shift_reg_in = 0;
+  _shift_reg_out = 0;
+  _prev_shift_reg_out = 0;
+
+  tmr_LED = millis();
+  tmr_shreg = millis();
+
+  _safemon_inputs = 0;
+  tmr_rain_ini = 0; tmr_rain_len =0 ;
+  tmr_power_ini = 0; tmr_power_len = 0; 
+  tmr_wstat_ini = 0; tmr_wstat_len = 0;
 }
 
 // read inputs from shift register 165, returns uint16_t value
@@ -464,18 +478,18 @@ void init_IO( void )
   pinMode(SR_OUT_PIN_SHCP, OUTPUT);           // shift register clock pulse
   pinMode(SR_OUT_PIN_SDOUT, OUTPUT);          // serial data out
 
-  pinMode(SR_OUT_PWM0, OUTPUT);
-  pinMode(SR_OUT_PWM1, OUTPUT);
-  pinMode(SR_OUT_PWM2, OUTPUT);
-  pinMode(SR_OUT_PWM3, OUTPUT);
+  pinMode(OUT_PIN_PWM0, OUTPUT);
+  pinMode(OUT_PIN_PWM1, OUTPUT);
+  pinMode(OUT_PIN_PWM2, OUTPUT);
+  pinMode(OUT_PIN_PWM3, OUTPUT);
 
   pinMode(SR_IN_PIN_CE, OUTPUT);                // chip enable
   pinMode(SR_IN_PIN_CP, OUTPUT);                // clock pulse
   pinMode(SR_IN_PIN_PL, OUTPUT);                // parallel latch
   pinMode(SR_IN_PIN_SDIN, INPUT);               // serial data in
 
-  pinMode(SR_IN_PIN_AP_SET, INPUT_PULLUP);      // net configuration button
-  pinMode(SR_OUT_PIN_AP_LED, OUTPUT);           // net configuration LED
+  pinMode(IN_PIN_AP_SET, INPUT_PULLUP);      // net configuration button
+  pinMode(OUT_PIN_AP_LED, OUTPUT);           // net configuration LED
   
   digitalWrite(SR_OUT_PIN_OE, LOW);
   digitalWrite(SR_OUT_PIN_STCP, LOW);
@@ -483,16 +497,16 @@ void init_IO( void )
   digitalWrite(SR_OUT_PIN_SHCP, LOW);
   digitalWrite(SR_OUT_PIN_SDOUT, LOW);
 
-  digitalWrite(SR_OUT_PWM0, LOW);
-  digitalWrite(SR_OUT_PWM1, LOW);
-  digitalWrite(SR_OUT_PWM2, LOW);
-  digitalWrite(SR_OUT_PWM3, LOW);
+  digitalWrite(OUT_PIN_PWM0, LOW);
+  digitalWrite(OUT_PIN_PWM1, LOW);
+  digitalWrite(OUT_PIN_PWM2, LOW);
+  digitalWrite(OUT_PIN_PWM3, LOW);
 
   digitalWrite(SR_IN_PIN_CE, HIGH);
   digitalWrite(SR_IN_PIN_CP, LOW);
   digitalWrite(SR_IN_PIN_PL, HIGH);
 
-  digitalWrite(SR_OUT_PIN_AP_LED, LOW);
+  digitalWrite(OUT_PIN_AP_LED, LOW);
 
   // clock pulse on 74HC595 shift register with OE and MR low
   digitalWrite(SR_OUT_PIN_SHCP, HIGH);
