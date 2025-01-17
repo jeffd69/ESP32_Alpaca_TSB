@@ -24,11 +24,15 @@
                 </div>
             <div class="card-body">
                 <div id="form-container"></div>
-                <button type="button" id="json_refresh" class="btn btn-primary">Refresh</button>
                 <button type="button" id="json_update" class="btn btn-primary">Update</button>
                 <button type="button" id="json_save" class="btn btn-primary">Save</button>
+                <button type="button" id="json_refresh" class="btn btn-primary">Refresh</button>
             </div>
+			<div>
+				<br>To save changes, Update, Save then click on Refresh to check.<br>
+			</div>
         </div>
+		
         <script>
             $(document).ready(function () {
                 $.ajaxSetup({ cache: false });
@@ -47,7 +51,6 @@
                         data: JSON.stringify($('#form-container').jsonFormer('formData')),
                         contentType: 'application/json',
                         success: function(msg) {
-
                         }
                     })
                 });

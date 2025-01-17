@@ -26,11 +26,13 @@
 #define SR_IN_PIN_PL        19          // parallel load
 #define SR_IN_PIN_SDIN      4           // serial data in
 
-#define IN_PIN_AP_SET       34          // net config button pin
+#define IN_PIN_AP_SET       23 // 34          // net config button pin
 #define OUT_PIN_AP_LED      13          // net config LED
 
+#define WS_TIMEOUT          30          // 30s timeout if no data received from WS
 #define IN_PIN_RX1          16          // usart RX from weather station
 #define OUT_PIN_TX1         17          // usart TX to weather station
+#define UART1_BUFFER        64          // size of uart buffers
 
 // bit mask for output shif register 595
 #define BIT_OUT_CLEAR       0xff00      // 0b1111 1111 0000 0000

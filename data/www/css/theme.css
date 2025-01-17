@@ -57,7 +57,7 @@ a.nav-link {
     background-color: var(--body) !important;
 }
 .logo {
-    content: url("/images/ascom.png");
+    content: url("ascom.png");
     height: 92px;
     width: 92px;
 }​

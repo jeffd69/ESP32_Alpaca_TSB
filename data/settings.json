@@ -13,7 +13,7 @@
       "UID": "dome-2CBCBB0D6EC800"
     },
     "Dome_Configuration": {
-      "Use_limit_switches": 0,
+      "Use_limit_switches": false,
       "Shutter_timeout": 60
     }
   },
@@ -23,7 +23,7 @@
       "Description": "Alpaca Switch",
       "UID": "switch-2CBCBB0D6EC800"
     },
-	"Switch_Configuration": {
+    "Switch_Configuration": {
       "Switch_0": "IN 1",
       "Switch_1": "IN 2",
       "Switch_2": "IN 3",
@@ -55,6 +55,16 @@
     "SafetyMonitor_Configuration": {
       "Rain_delay": 2,
       "Power_off_delay": 30
+    },
+    "Weather_Station": {
+      "Sky_temperature": 0,
+      "Use_sky_temp": false,
+      "Wind_speed": 0,
+      "Use_wind": false,
+      "Humidity": 0,
+      "Use_humid": false,
+      "Ambient_light": 0,
+      "Use_light": false
     }
   }
 }

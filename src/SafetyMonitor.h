@@ -13,12 +13,21 @@
 
 extern u_int8_t _safemon_inputs;
 
+extern bool is_ws_connected;
+extern int16_t		weather_tsky;					// readings from weather station
+extern int16_t		weather_tair;
+extern int16_t		weather_wind;
+extern int16_t		weather_hum;
+extern int16_t		weather_light;
+
+
 class SafetyMonitor : public AlpacaSafetyMonitor
 {
 private:
   bool _is_safe;
   uint32_t _rain_delay;
   uint32_t _power_delay;
+  bool _use_tsky, _use_wind, _use_hum, _use_light;
 
   const bool _getIsSafe();
 

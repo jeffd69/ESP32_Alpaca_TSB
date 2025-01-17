@@ -41,16 +41,18 @@ void Dome::Loop()
 
 	if( _use_switch )
 	{
-		if(( millis() - _timer_ini ) > (_timeout * 1000 ))		// timeout!!!!!!!!!!!
-		{
-			SLOG_WARNING_PRINTF("WARNING! Dome timeout!");
-			_shutter = AlpacaShutterStatus_t::kError;			// set error status
-			_slew = false;
-			_timer_ini = 0;
-			_timer_end = 0;
-			_dome_relay_close = false;							// turn relays OFF
-			_dome_relay_open = false;
-			return;
+		if(( _shutter == AlpacaShutterStatus_t::kOpening ) || ( _shutter == AlpacaShutterStatus_t::kClosing )) {
+			if(( millis() - _timer_ini ) > (_timeout * 1000 ))		// timeout!!!!!!!!!!!
+			{
+				SLOG_WARNING_PRINTF("WARNING! Dome timeout!");
+				_shutter = AlpacaShutterStatus_t::kError;			// set error status
+				_slew = false;
+				_timer_ini = 0;
+				_timer_end = 0;
+				_dome_relay_close = false;							// turn relays OFF
+				_dome_relay_open = false;
+				return;
+			}
 		}
 
 		if(( _shutter == AlpacaShutterStatus_t::kOpening ) && ( _dome_switch_opened ))
@@ -180,6 +182,23 @@ void Dome::AlpacaReadJson(JsonObject &root)
 
 	if (JsonObject obj_config = root["Dome_Configuration"])
 	{
+		String _str =(obj_config["Use_limit_switches"] | _str);
+		//Serial.print("########## AlpacaRead "); Serial.print(_str); Serial.println(" ########## ");
+		// _use_switch =(obj_config["Use_limit_switches"] | (_use_switch == true));
+
+		uint32_t _to = obj_config["Shutter_timeout"] | _timeout;
+		if((_to < 1) || (_to > 300)) {	// validate 0~300s
+			_to = 60;
+		}
+		
+		//Serial.print("AlpacaRead "); Serial.println(_str);
+		_str.toLowerCase();
+		_use_switch = (_str == "true" ? true : false);
+		_timeout = _to;
+/*
+		bool _sus =(obj_config["Test_switches"] | (_use_switch == true));
+		Serial.print("########## "); Serial.print(_sus); Serial.println(" ########## ");
+
 		uint32_t _us = (obj_config["Use_limit_switches"] | 1) == 0 ? false : true;
 		if((_us < 0) || (_us > 1)) {	// validate 0 -> not in use, 1 -> switches in use
 			_us = 0;
@@ -190,8 +209,9 @@ void Dome::AlpacaReadJson(JsonObject &root)
 			_to = 60;
 		}
 		
-		_use_switch = (_us == 0) ? false : true;
+		_use_switch = (_us == 0); // ? false : true;
 		_timeout = _to;
+*/
 
 		SLOG_PRINTF(SLOG_INFO, "...DOME READ  END  _use_switch=%s _timeout=%i\n", (_use_switch ? "true" : "false"), _timeout);
 	}
@@ -209,8 +229,15 @@ void Dome::AlpacaWriteJson(JsonObject &root)
 
     // Config
     JsonObject obj_config = root["Dome_Configuration"].to<JsonObject>();
-	obj_config["Use_limit_switches"] = _use_switch ? 1 : 0;
+	obj_config["Use_limit_switches"] = (_use_switch == true);
     obj_config["Shutter_timeout"] = _timeout;
 
+	Serial.print("AlpacaWrite "); Serial.println(_use_switch);
+
+	/*
+	obj_config["Test_switches"] = (true == _use_switch);
+	obj_config["Use_limit_switches"] = _use_switch ? 1 : 0;
+    obj_config["Shutter_timeout"] = _timeout;
+	*/
     DBG_JSON_PRINTFJ(SLOG_NOTICE, root, "...DOME WRITE END root=<%s>\n", _ser_json_);
 }
