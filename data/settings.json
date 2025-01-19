@@ -54,9 +54,7 @@
     },
     "SafetyMonitor_Configuration": {
       "Rain_delay": 2,
-      "Power_off_delay": 30
-    },
-    "Weather_Station": {
+      "Power_off_delay": 30,
       "Sky_temperature": 0,
       "Use_sky_temp": false,
       "Wind_speed": 0,
