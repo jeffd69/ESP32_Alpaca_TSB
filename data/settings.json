@@ -1,68 +1,60 @@
 {
-  "Name": "ALPACA-TSB-ESP32",
-  "UID": "2CBCBB0D6EC8",
-  "TCP_port": 80,
-  "UDP_port": 32227,
-  "SYSLOG_host": "0.0.0.0",
-  "LOG_level": 4,
-  "SERIAL_log": 1,
-  "dome-2CBCBB0D6EC800": {
-    "General": {
-      "Name": "dome-0",
-      "Description": "Alpaca Dome",
-      "UID": "dome-2CBCBB0D6EC800"
+    "Name": "ALPACA-TSB-ESP32",
+    "UID": "2CBCBB0D6EC8",
+    "TCP_port": 80,
+    "UDP_port": 32227,
+    "SYSLOG_host": "0.0.0.0",
+    "LOG_level": 4,
+    "SERIAL_log": 1,
+    "dome-2CBCBB0D6EC800": {
+      "General": {
+        "Name": "dome-0",
+        "Description": "Alpaca Dome",
+        "UID": "dome-2CBCBB0D6EC800"
+      },
+      "Dome_Configuration": {
+        "Use_limit_switches": false,
+        "Shutter_timeout": 60
+      }
     },
-    "Dome_Configuration": {
-      "Use_limit_switches": false,
-      "Shutter_timeout": 60
-    }
-  },
-  "switch-2CBCBB0D6EC800": {
-    "General": {
-      "Name": "switch-0",
-      "Description": "Alpaca Switch",
-      "UID": "switch-2CBCBB0D6EC800"
+    "switch-2CBCBB0D6EC800": {
+      "General": {
+        "Name": "switch-0",
+        "Description": "Alpaca Switch",
+        "UID": "switch-2CBCBB0D6EC800"
+      },
+      "Switch_Configuration": {
+        "IO_0": "IN 1",
+        "IO_1": "IN 2",
+        "IO_2": "IN 3",
+        "IO_3": "IN 4",
+        "IO_4": "IN 5",
+        "IO_5": "IN 6",
+        "IO_6": "IN 7",
+        "IO_7": "IN 8",
+        "IO_8": "OUT 1",
+        "IO_9": "OUT 2",
+        "IO_10": "OUT 3",
+        "IO_11": "OUT 4",
+        "IO_12": "OUT 5",
+        "IO_13": "OUT 6",
+        "IO_14": "OUT 7",
+        "IO_15": "OUT 8",
+        "IO_16": "PWM 1",
+        "IO_17": "PWM 2",
+        "IO_18": "PWM 3",
+        "IO_19": "PWM 4"
+      }
     },
-    "Switch_Configuration": {
-      "Switch_0": "IN 1",
-      "Switch_1": "IN 2",
-      "Switch_2": "IN 3",
-      "Switch_3": "IN 4",
-      "Switch_4": "IN 5",
-      "Switch_5": "IN 6",
-      "Switch_6": "IN 7",
-      "Switch_7": "IN 8",
-      "Switch_8": "OUT 1",
-      "Switch_9": "OUT 2",
-      "Switch_10": "OUT 3",
-      "Switch_11": "OUT 4",
-      "Switch_12": "OUT 5",
-      "Switch_13": "OUT 6",
-      "Switch_14": "OUT 7",
-      "Switch_15": "OUT 8",
-      "Switch_16": "PWM 1",
-      "Switch_17": "PWM 2",
-      "Switch_18": "PWM 3",
-      "Switch_19": "PWM 4"
-    }
-  },
-  "safetymonitor-2CBCBB0D6EC800": {
-    "General": {
-      "Name": "safetymonitor-0",
-      "Description": "Alpaca SafetyMonitor",
-      "UID": "safetymonitor-2CBCBB0D6EC800"
-    },
-    "SafetyMonitor_Configuration": {
-      "Rain_delay": 2,
-      "Power_off_delay": 30,
-      "Sky_temperature": 0,
-      "Use_sky_temp": false,
-      "Wind_speed": 0,
-      "Use_wind": false,
-      "Humidity": 0,
-      "Use_humid": false,
-      "Ambient_light": 0,
-      "Use_light": false
+    "safetymonitor-2CBCBB0D6EC800": {
+      "General": {
+        "Name": "safetymonitor-0",
+        "Description": "Alpaca SafetyMonitor",
+        "UID": "safetymonitor-2CBCBB0D6EC800"
+      },
+      "SafetyMonitor_Configuration": {
+        "Rain_delay": 2,
+        "Power_off_delay": 30
+      }
     }
   }
-}

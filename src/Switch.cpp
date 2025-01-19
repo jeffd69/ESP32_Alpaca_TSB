@@ -133,7 +133,7 @@ void Switch::AlpacaReadJson(JsonObject &root)
     char sw_name[kSwitchNameSize] = "";
     for (uint32_t u = 0; u < GetMaxSwitch(); u++)
     {
-      snprintf(sw_name, sizeof(sw_name), "Switch_%d", u);
+      snprintf(sw_name, sizeof(sw_name), "IO_%d", u);
       InitSwitchName(u, obj_config[sw_name] | GetSwitchName(u));
       DBG_JSON_PRINTFJ(SLOG_NOTICE, obj_config, "... title=%s obj_config=<%s> \n", sw_name, _ser_json_);
     }
@@ -152,7 +152,7 @@ void Switch::AlpacaWriteJson(JsonObject &root)
   char sw_name[kSwitchNameSize] = "";
   for (uint32_t u = 0; u < GetMaxSwitch(); u++)
   {
-    snprintf(sw_name, sizeof(sw_name), "Switch_%d", u);
+    snprintf(sw_name, sizeof(sw_name), "IO_%d", u);
     obj_config[sw_name] = (String)GetSwitchName(u);
     DBG_JSON_PRINTFJ(SLOG_NOTICE, obj_config, "... title=%s obj_config=<%s> \n", sw_name, _ser_json_);
   }

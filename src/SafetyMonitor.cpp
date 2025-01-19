@@ -43,6 +43,7 @@ void SafetyMonitor::AlpacaReadJson(JsonObject &root)
 	{
 		uint32_t _rd = obj_config["Rain_delay"] | _rd;
 		uint32_t _pd = obj_config["Power_off_delay"] | _pd;
+		/*
 		int16_t _tsky = obj_config["Sky_temperature"] | _tsky;
 		int16_t _wind = obj_config["Wind_speed"] | _wind;
 		int16_t _hum = obj_config["Humidity"] | _hum;
@@ -73,7 +74,7 @@ void SafetyMonitor::AlpacaReadJson(JsonObject &root)
 
 		_sl.toLowerCase();
 		_use_light = (_sl == "true" ? true : false);
-
+		*/
 		if((_rd < 1) || (_rd > 60))       // validate dalay on rain signal 1~60s
 			_rd = 2;
 
@@ -84,7 +85,6 @@ void SafetyMonitor::AlpacaReadJson(JsonObject &root)
 		_power_delay = _pd;
 
 		SLOG_PRINTF(SLOG_INFO, "...SAFEMON READ END _rain_delay=%i _power_delay=%i\n", (int)_rain_delay, (int)_power_delay);
-
 	}
 	else
 	{
@@ -101,6 +101,7 @@ void SafetyMonitor::AlpacaWriteJson(JsonObject &root)
 	JsonObject obj_config = root["SafetyMonitor_Configuration"].to<JsonObject>();
 	obj_config["Rain_delay"] = _rain_delay;
 	obj_config["Power_off_delay"] = _power_delay;
+	/*
 	obj_config["Sky_temperature"] = weather_tsky;
 	obj_config["Use_sky_temp"] = (_use_tsky == true);
 	obj_config["Wind_speed"] = weather_wind;
@@ -109,7 +110,7 @@ void SafetyMonitor::AlpacaWriteJson(JsonObject &root)
 	obj_config["Use_humid"] = (_use_hum == true);
 	obj_config["Ambient_light"] = weather_light;
 	obj_config["Use_light"] = (_use_light == true);
-
+	*/
 	DBG_JSON_PRINTFJ(SLOG_NOTICE, root, "...SAFEMON WRITE END root=<%s>\n", _ser_json_);
 }
 
