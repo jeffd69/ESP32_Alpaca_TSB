@@ -40,7 +40,7 @@ bool _dome_relay_open, _dome_relay_close;
 uint8_t _safemon_inputs;					// status of safety monitor 0->safe
 uint32_t tmr_rain_ini, tmr_rain_len;		// timers for rain delay and alarm duration
 uint32_t tmr_power_ini, tmr_power_len;		// power
-uint32_t tmr_wstat_ini, tmr_wstat_len;		// weather station
+//uint32_t tmr_wstat_ini, tmr_wstat_len;		// weather station
 
 uint32_t tmr_ws_connected;					// timout for weather station connection. If elapses, ws is considered offline
 bool is_ws_connected;						// true when weather station is connected
@@ -193,7 +193,7 @@ void loop()
 		_shift_reg_out |= BIT_SAFEMON;                    // SafetyMonitor connected LED ON
 
 		if(( _shift_reg_in & BIT_SAFE_RAIN ) != 0) {
-			if( tmr_rain_ini != 0 ) {
+			if( tmr_rain_ini == 0 ) {
 				tmr_rain_ini = millis();
 				tmr_rain_len = 1000 * safemonDevice.getRainDelay();
 			}
@@ -208,7 +208,7 @@ void loop()
 
 		if( safemonDevice.getPowerDelay() > 0 ) {                 // enter only if power delay is > 0
 			if(( _shift_reg_in & BIT_SAFE_POWER ) != 0) {
-				if( tmr_power_ini != 0 ) {
+				if( tmr_power_ini == 0 ) {
 					tmr_power_ini = millis();
 					tmr_power_len = 1000 * safemonDevice.getPowerDelay();
 				}
@@ -286,17 +286,6 @@ void loop()
 		}
 	}
 
-	if((millis() - tmr_shreg) > 100)                    // write shift register every 100ms
-	{
-		tmr_shreg = millis();
-	
-		if( _shift_reg_out != _prev_shift_reg_out )       // write only if changed
-		{
-			_prev_shift_reg_out = _shift_reg_out;
-			write_shift_register( _shift_reg_out );
-		}
-	}
-
 	if(( millis() - tmr_LED ) < 1000 )                  // blink CPU OK LED
 	{
 		if(( millis() - tmr_LED ) < 500 )
@@ -309,23 +298,34 @@ void loop()
 		tmr_LED = millis();
 	}
 
+	if((millis() - tmr_shreg) > 100)                    // write shift register every 100ms
+	{
+		tmr_shreg = millis();
+	
+		if( _shift_reg_out != _prev_shift_reg_out )       // write only if changed
+		{
+			_prev_shift_reg_out = _shift_reg_out;
+			write_shift_register( _shift_reg_out );
+		}
+	}
+
 	// serial from WS
 	if(Serial1.available())
 	{
 		char in_msg = (char)Serial1.read();
-		if( in_msg == '%' )                   // frame start
+		if( in_msg == '%' )                   		// frame start
 			rx_1_idx = 0;
 		
-		rx_1_buffer[rx_1_idx++] = in_msg;     // store char in the rx_buffer
+		rx_1_buffer[rx_1_idx++] = in_msg;     		// store char in the rx_buffer
 
-		if(in_msg == '#') {                   // frame end
-			rx_1_buffer[rx_1_idx++] = 0;        // append termination char
+		if(in_msg == '#') {                   		// frame end
+			rx_1_buffer[rx_1_idx++] = 0;        	// append termination char
 
 			if( rx_1_buffer[0] == '%') {
 				rx_1_complete = true;
 				is_ws_connected = true;
-				tmr_ws_connected = millis();      // refresh connection timer
-			} else {                            // message is incomplete, ignore
+				tmr_ws_connected = millis();      	// refresh connection timer
+			} else {                            	// message is incomplete, ignore
 				rx_1_idx = 0;
 				rx_1_buffer[rx_1_idx] = 0;
 			}
@@ -335,6 +335,7 @@ void loop()
 	if (rx_1_complete) {
 		parse_ws_message();
 		rx_1_complete = false;
+		flush_rx();
 	}
 }
 
@@ -522,7 +523,7 @@ void normal_boot()
 	_safemon_inputs = 0;
 	tmr_rain_ini = 0; tmr_rain_len =0 ;
 	tmr_power_ini = 0; tmr_power_len = 0; 
-	tmr_wstat_ini = 0; tmr_wstat_len = 0;
+	//tmr_wstat_ini = 0; tmr_wstat_len = 0;
 	is_ws_connected = false;
 	rx_1_complete = false;
 	rx_1_idx = 0;

@@ -24,26 +24,26 @@
         "UID": "switch-2CBCBB0D6EC800"
       },
       "Switch_Configuration": {
-        "IO_0": "IN 1",
-        "IO_1": "IN 2",
-        "IO_2": "IN 3",
-        "IO_3": "IN 4",
-        "IO_4": "IN 5",
-        "IO_5": "IN 6",
-        "IO_6": "IN 7",
-        "IO_7": "IN 8",
-        "IO_8": "OUT 1",
-        "IO_9": "OUT 2",
-        "IO_10": "OUT 3",
-        "IO_11": "OUT 4",
-        "IO_12": "OUT 5",
-        "IO_13": "OUT 6",
-        "IO_14": "OUT 7",
-        "IO_15": "OUT 8",
-        "IO_16": "PWM 1",
-        "IO_17": "PWM 2",
-        "IO_18": "PWM 3",
-        "IO_19": "PWM 4"
+        "Ch_0": "IN 1",
+        "Ch_1": "IN 2",
+        "Ch_2": "IN 3",
+        "Ch_3": "IN 4",
+        "Ch_4": "IN 5",
+        "Ch_5": "IN 6",
+        "Ch_6": "IN 7",
+        "Ch_7": "IN 8",
+        "Ch_8": "OUT 1",
+        "Ch_9": "OUT 2",
+        "Ch_10": "OUT 3",
+        "Ch_11": "OUT 4",
+        "Ch_12": "OUT 5",
+        "Ch_13": "OUT 6",
+        "Ch_14": "OUT 7",
+        "Ch_15": "OUT 8",
+        "Ch_16": "PWM 1",
+        "Ch_17": "PWM 2",
+        "Ch_18": "PWM 3",
+        "Ch_19": "PWM 4"
       }
     },
     "safetymonitor-2CBCBB0D6EC800": {
@@ -54,7 +54,10 @@
       },
       "SafetyMonitor_Configuration": {
         "Rain_delay": 2,
-        "Power_off_delay": 30
+        "Power_off_delay": 30,
+        "Weather_delay": 10,
+        "Sky_temp_limit": "",
+        "Wind_limit": "15"
       }
     }
   }

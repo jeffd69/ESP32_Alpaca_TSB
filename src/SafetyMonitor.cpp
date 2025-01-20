@@ -22,11 +22,58 @@ void SafetyMonitor::Begin()
 
 void SafetyMonitor::Loop()
 {
-	// TODO
+	if( is_ws_connected ) {
+		if( _use_tsky ) {
+			if( weather_tsky > _tsky_limit ) {
+				if(tmr_ws_sky_ini == 0) {
+					tmr_ws_sky_ini = millis();
+					tmr_ws_sky_len = _weather_delay * 1000;
+				}
+
+				if(( weather_tsky > _tsky_limit ) && (tmr_ws_sky_ini != 0) && ((millis() - tmr_ws_sky_ini) > tmr_ws_sky_len))
+					_safemon_inputs |= SAFEMON_TSKY_BIT;
+			}
+			else
+			{
+				_safemon_inputs &= ~SAFEMON_TSKY_BIT;
+				tmr_ws_sky_ini = 0;
+			}
+		} else {
+			_safemon_inputs &= ~SAFEMON_TSKY_BIT;
+			tmr_ws_sky_ini = 0;
+		}
+
+		if( _use_wind ) {
+			if( weather_wind > _wind_limit ) {
+				if(tmr_ws_wind_ini == 0) {
+					tmr_ws_wind_ini = millis();
+					tmr_ws_wind_len = _weather_delay * 1000;
+				}
+
+				if(( weather_wind > _wind_limit ) && (tmr_ws_wind_ini != 0) && ((millis() - tmr_ws_wind_ini) > tmr_ws_wind_len))
+					_safemon_inputs |= SAFEMON_WIND_BIT;
+			}
+			else
+			{
+				_safemon_inputs &= ~SAFEMON_WIND_BIT;
+				tmr_ws_wind_ini = 0;
+			}
+		} else {
+			_safemon_inputs &= ~SAFEMON_WIND_BIT;
+			tmr_ws_wind_ini = 0;
+		}
+
+	} else {
+		_safemon_inputs &= 0x3;						// mask all weather bits
+		tmr_ws_sky_ini = 0;
+		tmr_ws_wind_ini = 0;
+	}
+	
 	if( _safemon_inputs == 0 )
 		_is_safe = true;
 	else
 		_is_safe = false;
+
 }
 
 const bool SafetyMonitor::_getIsSafe()
@@ -38,51 +85,80 @@ void SafetyMonitor::AlpacaReadJson(JsonObject &root)
 {
 	DBG_JSON_PRINTFJ(SLOG_NOTICE, root, "SAFEMON READ BEGIN (root=<%s>) ...\n", _ser_json_);
 	AlpacaSafetyMonitor::AlpacaReadJson(root);
+	bool _valid;
 
 	if (JsonObject obj_config = root["SafetyMonitor_Configuration"])
 	{
 		uint32_t _rd = obj_config["Rain_delay"] | _rd;
 		uint32_t _pd = obj_config["Power_off_delay"] | _pd;
-		/*
-		int16_t _tsky = obj_config["Sky_temperature"] | _tsky;
-		int16_t _wind = obj_config["Wind_speed"] | _wind;
-		int16_t _hum = obj_config["Humidity"] | _hum;
-		int16_t _lig = obj_config["Ambient_light"] | _lig;
-		String _st = obj_config["Use_sky_temp"] | _st;
-		String _sw = obj_config["Use_wind"] | _sw;
-		String _sh = obj_config["Use_humid"] | _sh;
-		String _sl = obj_config["Use_light"] | _sl;
+		uint32_t _wd = obj_config["Weather_delay"] | _wd;
 
-		if((_tsky < -50) || (_tsky > 50)) _tsky = 0;
-		if((_wind < 0) || (_wind > 100)) _wind = 20;
-		if((_hum < 0) || (_hum > 100)) _hum = 95;
-		if((_lig < 0) || (_lig > 9999)) _lig = 0;
-		
-		weather_tsky = _tsky;
-		weather_wind = _wind;
-		weather_hum = _hum;
-		weather_light = _lig;
+		String _tsky = obj_config["Sky_temp_limit"] | _tsky;
+		String _wind = obj_config["Wind_limit"] | _wind;
+		//String _hum = obj_config["Humidity"] | _hum;
+		//String _lig = obj_config["Ambient_light"] | _lig;
 
-		_st.toLowerCase();
-		_use_tsky = (_st == "true" ? true : false);
-
-		_sw.toLowerCase();
-		_use_wind = (_sw == "true" ? true : false);
-
-		_sh.toLowerCase();
-		_use_hum = (_sh == "true" ? true : false);
-
-		_sl.toLowerCase();
-		_use_light = (_sl == "true" ? true : false);
-		*/
-		if((_rd < 1) || (_rd > 60))       // validate dalay on rain signal 1~60s
+		if((_rd < 1) || (_rd > 60))       	// validate dalay on rain signal 1~60s
 			_rd = 2;
 
-		if((_pd < 0) || (_pd > 600))      // validate delay on power outage 0~600 (0 means not in use)
+		if((_pd < 0) || (_pd > 600))      	// validate delay on power outage 0~600 (0 means not in use)
 			_pd = 0;
 
+		if((_wd < 0) || (_wd > 600))		// validate delay for weather station (0 means not in use)
+			_wd = 10;
+		
 		_rain_delay = _rd;
 		_power_delay = _pd;
+		_weather_delay = _wd;
+
+		_valid = true;
+		if(_tsky.isEmpty()) {
+			_valid = false;
+		} else {
+			for(int i=0; i<_tsky.length(); i++) {
+				char c =_tsky.charAt(i);
+				if(!(( c == '-') || (c > 0x2f) && (c < 0x3a))) {		// only minus sign and numbers allowed
+					_valid = false;
+				}
+			}
+		}
+
+		if( _valid ) {								// not empty string and valid number
+			int16_t _ws = (int16_t)_tsky.toInt();
+			if(!((_ws < -50) || (_ws > 50))) {
+				_use_tsky = true;
+				_tsky_limit = _ws;
+			}
+		} else {
+			_use_tsky = false;
+		}
+
+
+		_valid = true;
+		if(_wind.isEmpty()) {
+			_valid = false;
+		} else {
+			for(int i=0; i< _wind.length(); i++) {
+				char c =_wind.charAt(i);
+				if((c < 0x30) || (c > 0x39)) {		// only positive numbers allowed
+					_valid = false;
+				}
+			}
+		}
+
+		if( _valid ) {								// not empty string and valid number
+			int16_t _wi = (int16_t)_wind.toInt();
+			if(!((_wi < 0) || (_wi > 100))) {
+				_use_wind = true;
+				_wind_limit = _wi;
+			}
+		} else {
+			_use_wind = false;
+		}
+
+		char _msg[256];
+		snprintf(_msg, sizeof(_msg), "ReadJson tsky limit %i, tsky in use %s, wind limit %i, wind in use %s", _tsky_limit, _use_tsky ? "Yes" : "No", _wind_limit, _use_wind ? "Yes" : "No");
+		Serial.println(_msg);
 
 		SLOG_PRINTF(SLOG_INFO, "...SAFEMON READ END _rain_delay=%i _power_delay=%i\n", (int)_rain_delay, (int)_power_delay);
 	}
@@ -96,11 +172,32 @@ void SafetyMonitor::AlpacaWriteJson(JsonObject &root)
 {
 	SLOG_PRINTF(SLOG_NOTICE, "SAFEMON WRITE BEGIN ...\n");
 	AlpacaSafetyMonitor::AlpacaWriteJson(root);
+	char buff[16];
 
 	// Config
 	JsonObject obj_config = root["SafetyMonitor_Configuration"].to<JsonObject>();
 	obj_config["Rain_delay"] = _rain_delay;
 	obj_config["Power_off_delay"] = _power_delay;
+	obj_config["Weather_delay"] = _weather_delay;
+
+	if(_use_tsky == true){
+		snprintf(buff, sizeof(buff), "%i", _tsky_limit);
+		obj_config["Sky_temp_limit"] = buff;
+	} else {
+		obj_config["Sky_temp_limit"] = "";
+	}
+
+	if(_use_wind == true) {
+		snprintf(buff, sizeof(buff), "%i", _wind_limit);
+		obj_config["Wind_limit"] = buff;
+	} else {
+		obj_config["Wind_limit"] = "";
+	}
+
+	char _msg[256];
+	snprintf(_msg, sizeof(_msg), "WriteJson tsky limit %i, tsky in use %s, wind limit %i, wind in use %s", _tsky_limit, _use_tsky ? "Yes" : "No", _wind_limit, _use_wind ? "Yes" : "No");
+	Serial.println(_msg);
+
 	/*
 	obj_config["Sky_temperature"] = weather_tsky;
 	obj_config["Use_sky_temp"] = (_use_tsky == true);
