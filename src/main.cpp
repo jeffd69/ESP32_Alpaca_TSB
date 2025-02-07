@@ -59,10 +59,10 @@ int16_t		weather_clouds;					// 2024-08-26 2.03 added
 int16_t		weather_stars;					// 2024-08-26 2.03 added
 
 bool _sw_in[8], _sw_out[8];
-uint8_t _sw_pwm[4];
+uint8_t _sw_pwm[4], _prev_sw_pwm[4];
 uint8_t _sw_pwm_pins[4] = {OUT_PIN_PWM0, OUT_PIN_PWM1, OUT_PIN_PWM2, OUT_PIN_PWM3};
 
-uint32_t tmr_LED, tmr_shreg;
+uint32_t tmr_LED, tmr_shreg_in, tmr_shreg_out;
 
 uint16_t read_shift_register( void );
 void write_shift_register( uint16_t value );
@@ -75,13 +75,13 @@ void flush_rx(void);
 
 void setup()
 {
-	pinMode(IN_PIN_AP_SET, INPUT_PULLUP);             // net configuration button (no pullup on chip)
-	pinMode(OUT_PIN_AP_LED, OUTPUT);           // net configuration LED
-	digitalWrite(OUT_PIN_AP_LED, HIGH);        // turn LED OFF
+	pinMode(IN_PIN_AP_SET, INPUT_PULLUP);             	// net configuration button (no pullup on chip)
+	pinMode(OUT_PIN_AP_LED, OUTPUT);           			// net configuration LED
+	digitalWrite(OUT_PIN_AP_LED, HIGH);        			// turn LED OFF
 	delay(100);
 
 	if( LOW == digitalRead(IN_PIN_AP_SET)) {
-		digitalWrite(OUT_PIN_AP_LED, LOW);     // turn LED ON
+		digitalWrite(OUT_PIN_AP_LED, LOW);     			// turn LED ON
 		delay(1000);
 		if( LOW == digitalRead(IN_PIN_AP_SET)) {
 			Serial.println("Entering WiFi provisioning mode.");
@@ -90,14 +90,45 @@ void setup()
 	}
 
 	normal_boot();
+	
+	// setup ESP32AlpacaDevices
+	// 1. Init AlpacaServer
+	// 2. Init and add devices
+	// 3. Finalize AlpacaServer
+	// 4. Initialize vars
+	alpaca_server.Begin();
+
+	domeDevice.Begin();
+	alpaca_server.AddDevice(&domeDevice);
+
+	switchDevice.Begin();
+	alpaca_server.AddDevice(&switchDevice);
+
+	safemonDevice.Begin();
+	alpaca_server.AddDevice(&safemonDevice);
+
+	alpaca_server.RegisterCallbacks();
+	alpaca_server.LoadSettings();
+
+	_shift_reg_in = 0;
+	_shift_reg_out = 0;
+	_prev_shift_reg_out = 0;
+
+	tmr_LED = millis();
+	tmr_shreg_in = millis();
+	tmr_shreg_out = millis();
+
+	_safemon_inputs = 0;
+	tmr_rain_ini = 0; tmr_rain_len =0 ;
+	tmr_power_ini = 0; tmr_power_len = 0; 
+	//tmr_wstat_ini = 0; tmr_wstat_len = 0;
+	is_ws_connected = false;
+	rx_1_complete = false;
+	rx_1_idx = 0;
 }
 
 void loop()
 {
-#ifdef TEST_RESTART
-	checkForRestart();
-#endif
-
 	alpaca_server.Loop();
 
 	domeDevice.Loop();
@@ -106,8 +137,8 @@ void loop()
 
 	safemonDevice.Loop();
 
-	if((millis() - tmr_shreg) > 100) {                  // read shift register every 100ms
-		tmr_shreg = millis();
+	if((millis() - tmr_shreg_in) > 200) {                  	// read shift register every 200ms
+		tmr_shreg_in = millis();
 		_shift_reg_in = read_shift_register();
 	}
 
@@ -177,54 +208,56 @@ void loop()
 			_dome_relay_open = false;
 		}
 
-		if( _dome_relay_close )                  // set close relay bit in the shift register
+		if( _dome_relay_close ) {                 	// set close relay bit in the shift register
 			_shift_reg_out |= BIT_ROOF_CLOSE;
-		else
+			_shift_reg_out &= ~BIT_ROOF_OPEN;		// be sure to clear OPEN RELAY bit
+		} else {
 			_shift_reg_out &= ~BIT_ROOF_CLOSE;
-		
-		if( _dome_relay_open )                   // set open relay bit in the shift register
+		}
+
+		if( _dome_relay_open ) {                   	// set open relay bit in the shift register
 			_shift_reg_out |= BIT_ROOF_OPEN;
-		else
+			_shift_reg_out &= ~BIT_ROOF_CLOSE;		// be sure to clear CLOSE RELAY bit
+		} else {
 			_shift_reg_out &= ~BIT_ROOF_OPEN;
+		}
 	}
 
 	if( safemonDevice.GetNumberOfConnectedClients() > 0 )
 	{
-		_shift_reg_out |= BIT_SAFEMON;                    // SafetyMonitor connected LED ON
+		_shift_reg_out |= BIT_SAFEMON;                    				// SafetyMonitor connected LED ON
 
-		if(( _shift_reg_in & BIT_SAFE_RAIN ) != 0) {
-			if( tmr_rain_ini == 0 ) {
+		if(( _shift_reg_in & BIT_SAFE_RAIN ) != 0) {					// rain signal
+			if( tmr_rain_ini == 0 ) {									// if it's the first event, start counting the rain delay
 				tmr_rain_ini = millis();
 				tmr_rain_len = 1000 * safemonDevice.getRainDelay();
 			}
+
+			if(( tmr_rain_ini != 0 ) && ((millis() - tmr_rain_ini) > tmr_rain_len))    // if alarm persists for rain_delay, set UNSAFE
+				_safemon_inputs |= SAFEMON_RAIN_BIT;		
+		
 		} else {
-			tmr_rain_ini = 0;
+			tmr_rain_ini = 0;											// clear timer and flag
+			_safemon_inputs &= ~SAFEMON_RAIN_BIT;
 		}
 
-		if(( tmr_rain_ini != 0 ) && ((millis() - tmr_rain_ini) > tmr_rain_len))    // if alarm persists for rain_delay, set UNSAFE
-			_safemon_inputs |= SAFEMON_RAIN_BIT;
-		else
-			_safemon_inputs &= ~SAFEMON_RAIN_BIT;
-
-		if( safemonDevice.getPowerDelay() > 0 ) {                 // enter only if power delay is > 0
+		if( safemonDevice.getPowerDelay() > 0 ) {                 		// enter only if power delay is > 0
 			if(( _shift_reg_in & BIT_SAFE_POWER ) != 0) {
 				if( tmr_power_ini == 0 ) {
 					tmr_power_ini = millis();
 					tmr_power_len = 1000 * safemonDevice.getPowerDelay();
 				}
+
+				if((tmr_power_ini != 0) && ((millis() - tmr_power_ini) > tmr_power_len))
+					_safemon_inputs |= SAFEMON_POWER_BIT;				
 			}
 			else
 			{
 				tmr_power_ini = 0;
-			}
-		
-			if((tmr_power_ini != 0) && ((millis() - tmr_power_ini) > tmr_power_len))
-				_safemon_inputs |= SAFEMON_POWER_BIT;
-			else
 				_safemon_inputs &= ~SAFEMON_POWER_BIT;
-		}
-		else
-		{
+			}
+		} else {
+			tmr_power_ini = 0;
 			_safemon_inputs &= ~SAFEMON_POWER_BIT;
 		}
 	}
@@ -240,11 +273,11 @@ void loop()
 		uint32_t i;
 		uint16_t p;
 
-		_shift_reg_out |= BIT_SWITCH;                 // Switch connected LED ON
+		_shift_reg_out |= BIT_SWITCH;                 	// Switch connected LED ON
 
 		for(i=0; i<8; i++)
 		{
-			if((_shift_reg_in & (1 << i) != 0))                // set _sw_in[] according to shift register inputs
+			if((_shift_reg_in & (1 << i) != 0))         // set _sw_in[] according to shift register inputs
 				_sw_in[i] = true;
 			else
 				_sw_in[i] = false;
@@ -257,18 +290,20 @@ void loop()
 
 		for(i=0; i<4; i++)
 		{
-			p = ((uint16_t)_sw_pwm[i] * 255) / 100;
+			if( _prev_sw_pwm[i] != _sw_pwm[i] ) {				// update pwm only if different
+				_prev_sw_pwm[i] = _sw_pwm[i];
 
-			if( p == 0)                                     // set PWM pin to 0
-				digitalWrite(_sw_pwm_pins[i], LOW);
-			else if( p == 255)                              // set PWM pin to 1
-				digitalWrite(_sw_pwm_pins[i], HIGH);
-			else                                            // set PWM value
-				analogWrite(_sw_pwm_pins[i], (int)p);
+				if( p == 0) {                                   // set PWM pin to 0
+					digitalWrite(_sw_pwm_pins[i], LOW);
+				} else if( p == 100) {                          // set PWM pin to 1
+					digitalWrite(_sw_pwm_pins[i], HIGH);
+				} else {         
+					p = ((uint16_t)_sw_pwm[i] * 255) / 100;		// set PWM value
+					analogWrite(_sw_pwm_pins[i], (int)p);
+				}
+			}
 		}
-	}
-	else
-	{
+	} else {
 		uint32_t i;
 
 		_shift_reg_out &= ~BIT_SWITCH;                    // Switch connected LED OFF
@@ -286,23 +321,21 @@ void loop()
 		}
 	}
 
-	if(( millis() - tmr_LED ) < 1000 )                  // blink CPU OK LED
+	if(( millis() - tmr_LED ) < 1000 )                  	// blink CPU OK LED
 	{
 		if(( millis() - tmr_LED ) < 500 )
 			_shift_reg_out |= BIT_CPU_OK;
 		else
 			_shift_reg_out &= ~BIT_CPU_OK;
-	}
-	else
-	{
+	} else {
 		tmr_LED = millis();
 	}
 
-	if((millis() - tmr_shreg) > 100)                    // write shift register every 100ms
+	if((millis() - tmr_shreg_out) > 200)                    // write shift register every 200ms
 	{
-		tmr_shreg = millis();
+		tmr_shreg_out = millis();
 	
-		if( _shift_reg_out != _prev_shift_reg_out )       // write only if changed
+		if( _shift_reg_out != _prev_shift_reg_out )       	// write only if changed
 		{
 			_prev_shift_reg_out = _shift_reg_out;
 			write_shift_register( _shift_reg_out );
@@ -494,39 +527,6 @@ void normal_boot()
 	SLOG_INFO_PRINTF("SYSLOG enabled and running log_lvl=%s enable_serial=%s\n", g_Slog.GetLvlMskStr().c_str(), alpaca_server.GetSerialLog() ? "true" : "false"); 
 	g_Slog.SetLvlMsk(alpaca_server.GetLogLvl());
 	g_Slog.SetEnableSerial(alpaca_server.GetSerialLog());
-
-	// setup ESP32AlpacaDevices
-	// 1. Init AlpacaServer
-	// 2. Init and add devices
-	// 3. Finalize AlpacaServer
-	alpaca_server.Begin();
-
-	domeDevice.Begin();
-	alpaca_server.AddDevice(&domeDevice);
-
-	switchDevice.Begin();
-	alpaca_server.AddDevice(&switchDevice);
-
-	safemonDevice.Begin();
-	alpaca_server.AddDevice(&safemonDevice);
-
-	alpaca_server.RegisterCallbacks();
-	alpaca_server.LoadSettings();
-
-	_shift_reg_in = 0;
-	_shift_reg_out = 0;
-	_prev_shift_reg_out = 0;
-
-	tmr_LED = millis();
-	tmr_shreg = millis();
-
-	_safemon_inputs = 0;
-	tmr_rain_ini = 0; tmr_rain_len =0 ;
-	tmr_power_ini = 0; tmr_power_len = 0; 
-	//tmr_wstat_ini = 0; tmr_wstat_len = 0;
-	is_ws_connected = false;
-	rx_1_complete = false;
-	rx_1_idx = 0;
 }
 
 // read inputs from shift register 165, returns uint16_t value
@@ -534,12 +534,12 @@ uint16_t read_shift_register( void )
 {
 	uint16_t v = 0;
 
-	digitalWrite(SR_IN_PIN_CP, LOW);    // be sure CP is low
-	digitalWrite(SR_IN_PIN_PL, LOW);    // latch parallel inputs
+	digitalWrite(SR_IN_PIN_CP, LOW);    	// be sure CP is low
+	digitalWrite(SR_IN_PIN_PL, LOW);    	// latch parallel inputs
 	delayMicroseconds(1);
 	digitalWrite(SR_IN_PIN_PL, HIGH);
 	delayMicroseconds(1);
-	digitalWrite(SR_IN_PIN_CE, LOW);    // on CE -> low, D7 is available on serial out Q7
+	digitalWrite(SR_IN_PIN_CE, LOW);    	// on CE -> low, D7 is available on serial out Q7
 	delayMicroseconds(1);
 
 	for(uint16_t i=0; i<16; i++) {
@@ -554,12 +554,14 @@ uint16_t read_shift_register( void )
 
 	digitalWrite(SR_IN_PIN_CE, HIGH);
 
-	return v;
+	return ((~v) & 0x3fff);
 }
 
 // put value on the shift registers 595
 void write_shift_register( uint16_t value )
 {
+	uint16_t v = value;
+
 	digitalWrite(SR_OUT_PIN_SDOUT, LOW);        // 14 serial data low
 	digitalWrite(SR_OUT_PIN_MR, LOW);           // 10 clear previous data
 	delayMicroseconds(1);
@@ -571,17 +573,17 @@ void write_shift_register( uint16_t value )
 	delayMicroseconds(1);
 
 	for(uint8_t i = 0; i < 16; i++) {
-		if((value & 0x8000) == 0 )
+		if((v & 0x8000) == 0 )
 			digitalWrite(SR_OUT_PIN_SDOUT, LOW);
 		else
 			digitalWrite(SR_OUT_PIN_SDOUT, HIGH);
-		
+
 		delayMicroseconds(1);
 		digitalWrite(SR_OUT_PIN_SHCP, HIGH);
 		delayMicroseconds(1);
 		digitalWrite(SR_OUT_PIN_SHCP, LOW);
 
-		value = (value << 1);
+		v = (v << 1);
 	}
 
 	delayMicroseconds(1);
@@ -604,13 +606,13 @@ void init_IO( void )
 	pinMode(OUT_PIN_PWM2, OUTPUT);
 	pinMode(OUT_PIN_PWM3, OUTPUT);
 
-	pinMode(SR_IN_PIN_CE, OUTPUT);                // chip enable
-	pinMode(SR_IN_PIN_CP, OUTPUT);                // clock pulse
-	pinMode(SR_IN_PIN_PL, OUTPUT);                // parallel latch
-	pinMode(SR_IN_PIN_SDIN, INPUT);               // serial data in
+	pinMode(SR_IN_PIN_CE, OUTPUT);              // chip enable
+	pinMode(SR_IN_PIN_CP, OUTPUT);              // clock pulse
+	pinMode(SR_IN_PIN_PL, OUTPUT);              // parallel latch
+	pinMode(SR_IN_PIN_SDIN, INPUT);             // serial data in
 
-	pinMode(IN_PIN_AP_SET, INPUT_PULLUP);      // net configuration button
-	pinMode(OUT_PIN_AP_LED, OUTPUT);           // net configuration LED
+	pinMode(IN_PIN_AP_SET, INPUT);      		// net configuration button
+	pinMode(OUT_PIN_AP_LED, OUTPUT);           	// net configuration LED
 	
 	digitalWrite(SR_OUT_PIN_OE, LOW);
 	digitalWrite(SR_OUT_PIN_STCP, LOW);

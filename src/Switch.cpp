@@ -35,6 +35,7 @@ SwitchDevice_t init_switch_device[k_num_of_switch_devices] = {
 
 Switch::Switch() : AlpacaSwitch(k_num_of_switch_devices)
 {
+  // constructor
   //_p_swtc = AlpacaSwitch::_p_switch_devices;
 }
 

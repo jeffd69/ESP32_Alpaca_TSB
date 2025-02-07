@@ -89,16 +89,16 @@ void SafetyMonitor::AlpacaReadJson(JsonObject &root)
 
 	if (JsonObject obj_config = root["SafetyMonitor_Configuration"])
 	{
-		uint32_t _rd = obj_config["Rain_delay"] | _rd;
-		uint32_t _pd = obj_config["Power_off_delay"] | _pd;
-		uint32_t _wd = obj_config["Weather_delay"] | _wd;
+		uint32_t _rd = obj_config["Rain_delay"] | _rain_delay;
+		uint32_t _pd = obj_config["Power_off_delay"] | _power_delay;
+		uint32_t _wd = obj_config["Weather_delay"] | _weather_delay;
 
 		String _tsky = obj_config["Sky_temp_limit"] | _tsky;
 		String _wind = obj_config["Wind_limit"] | _wind;
 		//String _hum = obj_config["Humidity"] | _hum;
 		//String _lig = obj_config["Ambient_light"] | _lig;
 
-		if((_rd < 1) || (_rd > 60))       	// validate dalay on rain signal 1~60s
+		if((_rd < 2) || (_rd > 60))       	// validate dalay on rain signal 2~60s
 			_rd = 2;
 
 		if((_pd < 0) || (_pd > 600))      	// validate delay on power outage 0~600 (0 means not in use)
@@ -111,49 +111,50 @@ void SafetyMonitor::AlpacaReadJson(JsonObject &root)
 		_power_delay = _pd;
 		_weather_delay = _wd;
 
-		_valid = true;
 		if(_tsky.isEmpty()) {
-			_valid = false;
+			_use_tsky = false;
 		} else {
+			_valid = true;
+
 			for(int i=0; i<_tsky.length(); i++) {
 				char c =_tsky.charAt(i);
 				if(!(( c == '-') || (c > 0x2f) && (c < 0x3a))) {		// only minus sign and numbers allowed
 					_valid = false;
 				}
 			}
-		}
 
-		if( _valid ) {								// not empty string and valid number
-			int16_t _ws = (int16_t)_tsky.toInt();
-			if(!((_ws < -50) || (_ws > 50))) {
-				_use_tsky = true;
-				_tsky_limit = _ws;
+			if( _valid ) {								// not empty string and valid number
+				int16_t _ws = (int16_t)_tsky.toInt();
+				if(!((_ws < -50) || (_ws > 50))) {
+					_use_tsky = true;
+					_tsky_limit = _ws;
+				}
+			} else {
+				_use_tsky = false;
 			}
-		} else {
-			_use_tsky = false;
 		}
 
-
-		_valid = true;
 		if(_wind.isEmpty()) {
-			_valid = false;
+			_use_wind = false;
 		} else {
+			_valid = true;
+
 			for(int i=0; i< _wind.length(); i++) {
 				char c =_wind.charAt(i);
 				if((c < 0x30) || (c > 0x39)) {		// only positive numbers allowed
 					_valid = false;
 				}
 			}
-		}
 
-		if( _valid ) {								// not empty string and valid number
-			int16_t _wi = (int16_t)_wind.toInt();
-			if(!((_wi < 0) || (_wi > 100))) {
-				_use_wind = true;
-				_wind_limit = _wi;
-			}
-		} else {
-			_use_wind = false;
+			if( _valid ) {								// not empty string and valid number
+				int16_t _wi = (int16_t)_wind.toInt();
+				if(!((_wi < 0) || (_wi > 100))) {
+					_use_wind = true;
+					_wind_limit = _wi;
+				}
+			} else {
+				_use_wind = false;
+			}		
 		}
 
 		char _msg[256];
@@ -161,9 +162,7 @@ void SafetyMonitor::AlpacaReadJson(JsonObject &root)
 		Serial.println(_msg);
 
 		SLOG_PRINTF(SLOG_INFO, "...SAFEMON READ END _rain_delay=%i _power_delay=%i\n", (int)_rain_delay, (int)_power_delay);
-	}
-	else
-	{
+	} else {
 		SLOG_PRINTF(SLOG_WARNING, "...SAFEMON READ END no configuration\n");
 	}
 }
