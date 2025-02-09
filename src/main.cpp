@@ -137,14 +137,14 @@ void loop()
 
 	safemonDevice.Loop();
 
-	if((millis() - tmr_shreg_in) > 200) {                  	// read shift register every 200ms
+	if((millis() - tmr_shreg_in) > 100) {                  	// read shift register every 100ms
 		tmr_shreg_in = millis();
 		_shift_reg_in = read_shift_register();
 	}
 
 	if( domeDevice.GetNumberOfConnectedClients() > 0 )
 	{
-		_shift_reg_out |= BIT_DOME;                       // Dome connected LED ON
+		//_shift_reg_out |= BIT_DOME;                       // Dome connected LED ON
 
 		_dome_close_button = false;                       // if a client is connected, prevent manual open/close
 		_dome_open_button = false;
@@ -172,7 +172,7 @@ void loop()
 	}
 	else
 	{
-		_shift_reg_out &= ~BIT_DOME;            // Dome connected LED OFF
+		//_shift_reg_out &= ~BIT_DOME;            // Dome connected LED OFF
 
 		// set flags according to bits in shift registers
 		if( _shift_reg_in & BIT_BUTTON_CLOSE)   // if no clients connected, handle manual close button
@@ -225,7 +225,7 @@ void loop()
 
 	if( safemonDevice.GetNumberOfConnectedClients() > 0 )
 	{
-		_shift_reg_out |= BIT_SAFEMON;                    				// SafetyMonitor connected LED ON
+		//_shift_reg_out |= BIT_SAFEMON;                    				// SafetyMonitor connected LED ON
 
 		if(( _shift_reg_in & BIT_SAFE_RAIN ) != 0) {					// rain signal
 			if( tmr_rain_ini == 0 ) {									// if it's the first event, start counting the rain delay
@@ -263,7 +263,7 @@ void loop()
 	}
 	else
 	{
-		_shift_reg_out &= ~BIT_SAFEMON;                   // SafetyMonitor connected LED OFF
+		//_shift_reg_out &= ~BIT_SAFEMON;                   // SafetyMonitor connected LED OFF
 		_safemon_inputs = 0;
 		is_ws_connected = false;
 	}
@@ -273,7 +273,7 @@ void loop()
 		uint32_t i;
 		uint16_t p;
 
-		_shift_reg_out |= BIT_SWITCH;                 	// Switch connected LED ON
+		//_shift_reg_out |= BIT_SWITCH;                 	// Switch connected LED ON
 
 		for(i=0; i<8; i++)
 		{
@@ -306,7 +306,7 @@ void loop()
 	} else {
 		uint32_t i;
 
-		_shift_reg_out &= ~BIT_SWITCH;                    // Switch connected LED OFF
+		//_shift_reg_out &= ~BIT_SWITCH;                    // Switch connected LED OFF
 		_shift_reg_out &= BIT_OUT_CLEAR;                  // clear all OUT bits
 		for(i=0; i<8; i++)
 		{
@@ -324,14 +324,24 @@ void loop()
 	if(( millis() - tmr_LED ) < 1000 )                  	// blink CPU OK LED
 	{
 		if(( millis() - tmr_LED ) < 500 )
+		{
 			_shift_reg_out |= BIT_CPU_OK;
+			if( domeDevice.GetNumberOfConnectedClients() > 0) _shift_reg_out |= BIT_DOME;                 		// Dome connected LED ON
+			if( safemonDevice.GetNumberOfConnectedClients() > 0) _shift_reg_out |= BIT_SAFEMON;                 // Sefemon connected LED ON
+			if( switchDevice.GetNumberOfConnectedClients() > 0) _shift_reg_out |= BIT_SWITCH;                 	// Switch connected LED ON
+		}
 		else
+		{
 			_shift_reg_out &= ~BIT_CPU_OK;
+			if( domeDevice.GetNumberOfConnectedClients() > 0) _shift_reg_out &= ~BIT_DOME;                 		// Dome connected LED OFF
+			if( safemonDevice.GetNumberOfConnectedClients() > 0) _shift_reg_out &= ~BIT_SAFEMON;                // Sefemon connected LED OFF
+			if( switchDevice.GetNumberOfConnectedClients() > 0) _shift_reg_out &= ~BIT_SWITCH;                 	// Switch connected LED OFF
+		}
 	} else {
 		tmr_LED = millis();
 	}
 
-	if((millis() - tmr_shreg_out) > 200)                    // write shift register every 200ms
+	if((millis() - tmr_shreg_out) > 100)                    // write shift register every 100ms
 	{
 		tmr_shreg_out = millis();
 	

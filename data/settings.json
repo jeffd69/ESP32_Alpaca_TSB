@@ -56,8 +56,14 @@
         "Rain_delay": 2,
         "Power_off_delay": 30,
         "Weather_delay": 10,
-        "Sky_temp_limit": "",
-        "Wind_limit": "15"
+        "Use_sky_temp": false,
+        "Sky_temp_limit": 0,
+        "Use_wind": false,
+        "Wind_limit": 10,
+        "Use_humidity": false,
+        "Humidity": 90,
+        "Use_light": false,
+        "Ambient_light": 10
       }
     }
   }
