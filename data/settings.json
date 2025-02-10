@@ -5,7 +5,7 @@
     "UDP_port": 32227,
     "SYSLOG_host": "0.0.0.0",
     "LOG_level": 4,
-    "SERIAL_log": 1,
+    "SERIAL_log": true,
     "dome-2CBCBB0D6EC800": {
       "General": {
         "Name": "dome-0",

@@ -19,19 +19,19 @@ enum struct ShutterStatus_t
 };
 */
 
-extern bool _dome_open_button, _dome_close_button, _dome_switch_opened, _dome_switch_closed;
-extern bool _dome_relay_open, _dome_relay_close;
+extern bool d_switch_opened, d_switch_closed;
+extern bool d_relay_open, d_relay_close;
 
 class Dome : public AlpacaDome
 {
 private:
 
-	AlpacaShutterStatus_t _shutter;		// shutter status
-	bool _slew;							// true when shutter is moving
-	bool _use_switch;					// if true, use limit switches, else use timeout
-	int32_t _timeout;					// open/close timeout
-	int32_t _timer_ini;					// timer init of movement
-	int32_t _timer_end;					// timer init of movement
+	AlpacaShutterStatus_t d_shutter;		// shutter status
+	bool d_slewing;							// true when shutter is moving
+	bool d_use_switch;					// if true, use limit switches, else use timeout
+	int32_t d_timeout;					// open/close timeout
+	int32_t d_timer_ini;					// timer init of movement
+	int32_t d_timer_end;					// timer init of movement
 
 	const bool _putAbort();				// to be implemented here
 	const bool _putClose();
@@ -41,7 +41,7 @@ private:
 	void AlpacaReadJson(JsonObject &root);
 	void AlpacaWriteJson(JsonObject &root);
 
-	void _dome_use_limit(bool use_lim) { _use_switch = use_lim; };
+	void _dome_use_limit(bool use_lim) { d_use_switch = use_lim; };
 
 	static const char *const k_shutter_state_str[5];
 

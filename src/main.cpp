@@ -34,8 +34,8 @@ SafetyMonitor safemonDevice;
 AlpacaServer alpaca_server(ALPACA_MNG_SERVER_NAME, ALPACA_MNG_MANUFACTURE, ALPACA_MNG_MANUFACTURE_VERSION, ALPACA_MNG_LOCATION);
 
 uint16_t _shift_reg_in, _shift_reg_out, _prev_shift_reg_out;
-bool _dome_open_button, _dome_close_button, _dome_switch_opened, _dome_switch_closed;
-bool _dome_relay_open, _dome_relay_close;
+bool d_open_button, d_close_button, d_switch_opened, d_switch_closed;
+bool d_relay_open, d_relay_close;
 
 uint8_t _safemon_inputs;					// status of safety monitor 0->safe
 uint32_t tmr_rain_ini, tmr_rain_len;		// timers for rain delay and alarm duration
@@ -142,89 +142,90 @@ void loop()
 		_shift_reg_in = read_shift_register();
 	}
 
-	if( domeDevice.GetNumberOfConnectedClients() > 0 )
-	{
+	if( domeDevice.GetNumberOfConnectedClients() > 0 ) {
 		//_shift_reg_out |= BIT_DOME;                       // Dome connected LED ON
 
-		_dome_close_button = false;                       // if a client is connected, prevent manual open/close
-		_dome_open_button = false;
+		d_close_button = false;                       		// if a client is connected, prevent manual open/close
+		d_open_button = false;
 
-		if( _shift_reg_in & BIT_FC_CLOSE )                // handle close switch input
-			_dome_switch_closed = true;
+		if( _shift_reg_in & BIT_FC_CLOSE )                	// handle close switch input
+			d_switch_closed = true;
 		else
-			_dome_switch_closed = false;
+			d_switch_closed = false;
 
-		if( _shift_reg_in & BIT_FC_OPEN )                 // handle open switch input
-			_dome_switch_opened = true;
+		if( _shift_reg_in & BIT_FC_OPEN )                 	// handle open switch input
+			d_switch_opened = true;
 		else 
-			_dome_switch_opened = false;
+			d_switch_opened = false;
 
-		if( _dome_relay_close )                            // handle close relay bit in the shift register
+		if( d_relay_close ){                            	// handle close relay bit in the shift register
 			_shift_reg_out |= BIT_ROOF_CLOSE;
-		else
-			_shift_reg_out &= ~BIT_ROOF_CLOSE;
-		
-		if( _dome_relay_open )                             // handle open relay bit in the shift register
-			_shift_reg_out |= BIT_ROOF_OPEN;
-		else
 			_shift_reg_out &= ~BIT_ROOF_OPEN;
-
+		} else {
+			_shift_reg_out &= ~BIT_ROOF_CLOSE;
+		}
+		
+		if( d_relay_open ) {                            		// handle open relay bit in the shift register
+			_shift_reg_out |= BIT_ROOF_OPEN;
+			_shift_reg_out &= ~BIT_ROOF_CLOSE;
+		} else {
+			_shift_reg_out &= ~BIT_ROOF_OPEN;
+		}
 	}
 	else
 	{
-		//_shift_reg_out &= ~BIT_DOME;            // Dome connected LED OFF
+		//_shift_reg_out &= ~BIT_DOME;            	// Dome connected LED OFF
 
 		// set flags according to bits in shift registers
-		if( _shift_reg_in & BIT_BUTTON_CLOSE)   // if no clients connected, handle manual close button
-			_dome_close_button = true;
+		if( _shift_reg_in & BIT_BUTTON_CLOSE)   	// if no clients connected, handle manual close button
+			d_close_button = true;
 		else
-			_dome_close_button = false;
+			d_close_button = false;
 		
-		if( _shift_reg_in & BIT_BUTTON_OPEN )   // if no clients connected, handle manual open button
-			_dome_open_button = true;
+		if( _shift_reg_in & BIT_BUTTON_OPEN )   	// if no clients connected, handle manual open button
+			d_open_button = true;
 		else
-			_dome_open_button = false;
+			d_open_button = false;
 		
-		if( _shift_reg_in & BIT_FC_CLOSE )      // handle close switch
-			_dome_switch_closed = true;
+		if( _shift_reg_in & BIT_FC_CLOSE )      	// handle close switch
+			d_switch_closed = true;
 		else
-			_dome_switch_closed = false;
+			d_switch_closed = false;
 
-		if( _shift_reg_in & BIT_FC_OPEN )       // handle open switch
-			_dome_switch_opened = true;
+		if( _shift_reg_in & BIT_FC_OPEN )       	// handle open switch
+			d_switch_opened = true;
 		else 
-			_dome_switch_opened = false;
+			d_switch_opened = false;
 		
 		// set relays if conditions are met
-		if( _dome_close_button && !_dome_open_button && !_dome_switch_closed ) {
-			_dome_relay_close = true;
-			_dome_relay_open = false;
+		if( d_close_button && !d_open_button && !d_switch_closed ) {
+			d_relay_close = true;
+			d_relay_open = false;
 		}
-		else if( !_dome_close_button && _dome_open_button && !_dome_switch_opened ) {
-			_dome_relay_close = false;
-			_dome_relay_open = true;
-		} else{
-			_dome_relay_close = false;
-			_dome_relay_open = false;
+		else if( !d_close_button && d_open_button && !d_switch_opened ) {
+			d_relay_close = false;
+			d_relay_open = true;
+		} else {
+			d_relay_close = false;
+			d_relay_open = false;
 		}
 
-		if( _dome_relay_close ) {                 	// set close relay bit in the shift register
+		if( d_relay_close ) {                 			// set close relay bit in the shift register
 			_shift_reg_out |= BIT_ROOF_CLOSE;
-			_shift_reg_out &= ~BIT_ROOF_OPEN;		// be sure to clear OPEN RELAY bit
+			_shift_reg_out &= ~BIT_ROOF_OPEN;			// be sure to clear OPEN RELAY bit
 		} else {
 			_shift_reg_out &= ~BIT_ROOF_CLOSE;
 		}
 
-		if( _dome_relay_open ) {                   	// set open relay bit in the shift register
+		if( d_relay_open ) {                   			// set open relay bit in the shift register
 			_shift_reg_out |= BIT_ROOF_OPEN;
-			_shift_reg_out &= ~BIT_ROOF_CLOSE;		// be sure to clear CLOSE RELAY bit
+			_shift_reg_out &= ~BIT_ROOF_CLOSE;			// be sure to clear CLOSE RELAY bit
 		} else {
 			_shift_reg_out &= ~BIT_ROOF_OPEN;
 		}
 	}
 
-	if( safemonDevice.GetNumberOfConnectedClients() > 0 )
-	{
+	if( safemonDevice.GetNumberOfConnectedClients() > 0 ) {
 		//_shift_reg_out |= BIT_SAFEMON;                    				// SafetyMonitor connected LED ON
 
 		if(( _shift_reg_in & BIT_SAFE_RAIN ) != 0) {					// rain signal
@@ -307,7 +308,7 @@ void loop()
 		uint32_t i;
 
 		//_shift_reg_out &= ~BIT_SWITCH;                    // Switch connected LED OFF
-		_shift_reg_out &= BIT_OUT_CLEAR;                  // clear all OUT bits
+		_shift_reg_out &= BIT_OUT_CLEAR;                  	// clear all OUT bits
 		for(i=0; i<8; i++)
 		{
 			_sw_out[i] = false;                             // clear all out
@@ -521,10 +522,10 @@ void normal_boot()
 		SLOG_INFO_PRINTF("Connecting to WiFi ..\n");
 		delay(1000);
 		_attempts++;
-	}
 
-	if(!(_attempts < 60)) {
-		ESP.restart();
+		if(!(_attempts < 60)) {
+			ESP.restart();
+		}
 	}
 	
 	IPAddress ip = WiFi.localIP();
