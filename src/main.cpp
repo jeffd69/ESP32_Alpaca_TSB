@@ -28,8 +28,6 @@ SafetyMonitor safemonDevice;
 
 #define VERSION "1.0.0"
 
-// #define TEST_PROVISIONING
-
 // ASCOM Alpaca server with discovery
 AlpacaServer alpaca_server(ALPACA_MNG_SERVER_NAME, ALPACA_MNG_MANUFACTURE, ALPACA_MNG_MANUFACTURE_VERSION, ALPACA_MNG_LOCATION);
 
@@ -37,45 +35,48 @@ uint16_t _shift_reg_in, _shift_reg_out, _prev_shift_reg_out;
 bool d_open_button, d_close_button, d_switch_opened, d_switch_closed;
 bool d_relay_open, d_relay_close;
 
-uint8_t _safemon_inputs;					// status of safety monitor 0->safe
-uint32_t tmr_rain_ini, tmr_rain_len;		// timers for rain delay and alarm duration
-uint32_t tmr_power_ini, tmr_power_len;		// power
+uint8_t _safemon_inputs;						// status of safety monitor 0->safe
+uint32_t tmr_rain_ini, tmr_rain_len;			// timers for rain delay and alarm duration
+uint32_t tmr_power_ini, tmr_power_len;			// power
 //uint32_t tmr_wstat_ini, tmr_wstat_len;		// weather station
 
-uint32_t tmr_ws_connected;					// timout for weather station connection. If elapses, ws is considered offline
-bool is_ws_connected;						// true when weather station is connected
-int rx_1_idx;								// index of pointed char in ws_message[]
-bool rx_1_complete;							// true when a complete message is received
+uint32_t tmr_ws_connected;						// timout for weather station connection. If elapses, ws is considered offline
+bool is_ws_connected;							// true when weather station is connected
+int rx_1_idx;									// index of pointed char in ws_message[]
+bool rx_1_complete;								// true when a complete message is received
 char rx_1_buffer[UART1_BUFFER];
 char tx_1_buffer[UART1_BUFFER];
-int16_t		weather_tsky;					// readings from weather station
-int16_t		weather_tair;
-int16_t		weather_wind;
-int16_t		weather_hum;
-int16_t		weather_light;
-int16_t		weather_press;					// 2024-08-26 2.03 not used anymore
-int16_t		weather_rain;					// 2024-08-26 2.03 added
-int16_t		weather_clouds;					// 2024-08-26 2.03 added
-int16_t		weather_stars;					// 2024-08-26 2.03 added
+int16_t	weather_tsky;							// readings from weather station
+int16_t	weather_tair;
+int16_t	weather_wind;
+int16_t	weather_hum;
+int16_t	weather_light;
+int16_t	weather_press;							// 2024-08-26 2.03 not used anymore
+int16_t	weather_rain;							// 2024-08-26 2.03 added
+int16_t	weather_clouds;							// 2024-08-26 2.03 added
+int16_t	weather_stars;							// 2024-08-26 2.03 added
 
-bool _sw_in[8], _sw_out[8];
-uint8_t _sw_pwm[4], _prev_sw_pwm[4];
-uint8_t _sw_pwm_pins[4] = {OUT_PIN_PWM0, OUT_PIN_PWM1, OUT_PIN_PWM2, OUT_PIN_PWM3};
+bool _sw_in[8], _sw_out[8];						// status of switch in and out
+uint8_t _sw_pwm[4], _prev_sw_pwm[4];			// switch PWMs
+uint8_t _sw_pwm_pins[4] = {OUT_PIN_PWM0, OUT_PIN_PWM1, OUT_PIN_PWM2, OUT_PIN_PWM3};		// definition of PWM pins
 
-uint32_t tmr_LED, tmr_shreg_in, tmr_shreg_out;
+uint32_t tmr_LED, tmr_shreg_in, tmr_shreg_out;	// timers for LEDs and shift registers
+uint32_t restart_start_time_ms;					// timer for restart
+uint32_t const RESTART_DELAY_MS = 5000;			// restart delay
 
-uint16_t read_shift_register( void );
-void write_shift_register( uint16_t value );
-void init_IO(void);
-void provisioning(void);
-void normal_boot(void);
 bool parse_ws_message(void);
 void flush_tx(void);
 void flush_rx(void);
+void provisioning(void);
+void normal_boot(void);
+uint16_t read_shift_register( void );
+void write_shift_register( uint16_t value );
+void init_IO(void);
+void checkForRestart(void);
 
 void setup()
 {
-	pinMode(IN_PIN_AP_SET, INPUT_PULLUP);             	// net configuration button (no pullup on chip)
+	pinMode(IN_PIN_AP_SET, INPUT_PULLUP);             	// net configuration button (WARNING no pullup on chip)
 	pinMode(OUT_PIN_AP_LED, OUTPUT);           			// net configuration LED
 	digitalWrite(OUT_PIN_AP_LED, HIGH);        			// turn LED OFF
 	delay(100);
@@ -125,10 +126,13 @@ void setup()
 	is_ws_connected = false;
 	rx_1_complete = false;
 	rx_1_idx = 0;
+	restart_start_time_ms = 0;
 }
 
 void loop()
 {
+	checkForRestart();
+
 	alpaca_server.Loop();
 
 	domeDevice.Loop();
@@ -145,9 +149,6 @@ void loop()
 	if( domeDevice.GetNumberOfConnectedClients() > 0 ) {
 		//_shift_reg_out |= BIT_DOME;                       // Dome connected LED ON
 
-		d_close_button = false;                       		// if a client is connected, prevent manual open/close
-		d_open_button = false;
-
 		if( _shift_reg_in & BIT_FC_CLOSE )                	// handle close switch input
 			d_switch_closed = true;
 		else
@@ -158,22 +159,20 @@ void loop()
 		else 
 			d_switch_opened = false;
 
-		if( d_relay_close ){                            	// handle close relay bit in the shift register
+		if( d_relay_close && !d_switch_closed ){			// handle close relay bit in the out shift register
 			_shift_reg_out |= BIT_ROOF_CLOSE;
 			_shift_reg_out &= ~BIT_ROOF_OPEN;
 		} else {
 			_shift_reg_out &= ~BIT_ROOF_CLOSE;
 		}
 		
-		if( d_relay_open ) {                            		// handle open relay bit in the shift register
+		if( d_relay_open && !d_switch_opened) {				// handle open relay bit in the out shift register
 			_shift_reg_out |= BIT_ROOF_OPEN;
 			_shift_reg_out &= ~BIT_ROOF_CLOSE;
 		} else {
 			_shift_reg_out &= ~BIT_ROOF_OPEN;
 		}
-	}
-	else
-	{
+	} else {
 		//_shift_reg_out &= ~BIT_DOME;            	// Dome connected LED OFF
 
 		// set flags according to bits in shift registers
@@ -199,29 +198,15 @@ void loop()
 		
 		// set relays if conditions are met
 		if( d_close_button && !d_open_button && !d_switch_closed ) {
-			d_relay_close = true;
-			d_relay_open = false;
+			_shift_reg_out |= BIT_ROOF_CLOSE; 			// set close relay bit in the shift register
+			_shift_reg_out &= ~BIT_ROOF_OPEN;			// be sure to clear OPEN RELAY bit
 		}
 		else if( !d_close_button && d_open_button && !d_switch_opened ) {
-			d_relay_close = false;
-			d_relay_open = true;
-		} else {
-			d_relay_close = false;
-			d_relay_open = false;
-		}
-
-		if( d_relay_close ) {                 			// set close relay bit in the shift register
-			_shift_reg_out |= BIT_ROOF_CLOSE;
-			_shift_reg_out &= ~BIT_ROOF_OPEN;			// be sure to clear OPEN RELAY bit
-		} else {
-			_shift_reg_out &= ~BIT_ROOF_CLOSE;
-		}
-
-		if( d_relay_open ) {                   			// set open relay bit in the shift register
-			_shift_reg_out |= BIT_ROOF_OPEN;
+			_shift_reg_out |= BIT_ROOF_OPEN;   			// set open relay bit in the shift register
 			_shift_reg_out &= ~BIT_ROOF_CLOSE;			// be sure to clear CLOSE RELAY bit
 		} else {
-			_shift_reg_out &= ~BIT_ROOF_OPEN;
+			_shift_reg_out &= ~BIT_ROOF_CLOSE;			// bclear CLOSE RELAY bit
+			_shift_reg_out &= ~BIT_ROOF_OPEN;			// clear OPEN RELAY bit
 		}
 	}
 
@@ -326,17 +311,17 @@ void loop()
 	{
 		if(( millis() - tmr_LED ) < 500 )
 		{
-			_shift_reg_out |= BIT_CPU_OK;
-			if( domeDevice.GetNumberOfConnectedClients() > 0) _shift_reg_out |= BIT_DOME;                 		// Dome connected LED ON
-			if( safemonDevice.GetNumberOfConnectedClients() > 0) _shift_reg_out |= BIT_SAFEMON;                 // Sefemon connected LED ON
-			if( switchDevice.GetNumberOfConnectedClients() > 0) _shift_reg_out |= BIT_SWITCH;                 	// Switch connected LED ON
+			_shift_reg_out |= BIT_CPU_OK;		// CPU LED ON
+			if( domeDevice.GetNumberOfConnectedClients() > 0) _shift_reg_out |= BIT_DOME;			// Dome connected LED ON
+			if( safemonDevice.GetNumberOfConnectedClients() > 0) _shift_reg_out |= BIT_SAFEMON; 	// Sefemon connected LED ON
+			if( switchDevice.GetNumberOfConnectedClients() > 0) _shift_reg_out |= BIT_SWITCH;		// Switch connected LED ON
 		}
 		else
 		{
-			_shift_reg_out &= ~BIT_CPU_OK;
-			if( domeDevice.GetNumberOfConnectedClients() > 0) _shift_reg_out &= ~BIT_DOME;                 		// Dome connected LED OFF
-			if( safemonDevice.GetNumberOfConnectedClients() > 0) _shift_reg_out &= ~BIT_SAFEMON;                // Sefemon connected LED OFF
-			if( switchDevice.GetNumberOfConnectedClients() > 0) _shift_reg_out &= ~BIT_SWITCH;                 	// Switch connected LED OFF
+			_shift_reg_out &= ~BIT_CPU_OK;		// CPU LED OFF
+			_shift_reg_out &= ~BIT_DOME;		// Dome connected LED OFF
+			_shift_reg_out &= ~BIT_SAFEMON;		// Sefemon connected LED OFF
+			_shift_reg_out &= ~BIT_SWITCH;		// Switch connected LED OFF
 		}
 	} else {
 		tmr_LED = millis();
@@ -449,6 +434,7 @@ bool parse_ws_message(void) {
 	return true;
 }
 
+// flush UART buffers
 void flush_tx(void) { for(int i=0; i< UART1_BUFFER; i++) tx_1_buffer[i] = 0; }
 void flush_rx(void) { for(int i=0; i< UART1_BUFFER; i++) rx_1_buffer[i] = 0; }
 
@@ -604,6 +590,7 @@ void write_shift_register( uint16_t value )
 	digitalWrite(SR_OUT_PIN_OE, LOW);           // 13 enable output
 }
 
+// initialize IOs and pin status
 void init_IO( void )
 {
 	pinMode(SR_OUT_PIN_OE, OUTPUT);             // output enable
@@ -658,3 +645,21 @@ void init_IO( void )
 
 	Serial1.begin(9600, SERIAL_8N1, IN_PIN_RX1, OUT_PIN_TX1);
 }
+
+// restart ESP32 on 192.168.1.123/reset page
+void checkForRestart(void) {
+	if ( alpaca_server.GetResetRequest() ) {
+		if( restart_start_time_ms == 0 ) {
+			restart_start_time_ms = millis();
+			Serial.println("Restart request");
+		}
+
+		if(( millis() - restart_start_time_ms ) > RESTART_DELAY_MS ) {
+			Serial.println("Restarting");
+			delay(1000);
+			ESP.restart();
+		}
+	}
+}
+
+

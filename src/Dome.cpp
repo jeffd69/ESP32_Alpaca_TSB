@@ -54,7 +54,7 @@ void Dome::Loop()
 
 		if(( d_shutter == AlpacaShutterStatus_t::kOpening ) && ( d_switch_opened ))
 		{
-			d_shutter == AlpacaShutterStatus_t::kOpen;
+			d_shutter = AlpacaShutterStatus_t::kOpen;
 			d_slewing = false;
 			d_relay_close = false;		// turn relays OFF
 			d_relay_open = false;
@@ -63,7 +63,7 @@ void Dome::Loop()
 		
 		if(( d_shutter == AlpacaShutterStatus_t::kClosing ) && ( d_switch_closed ))
 		{
-			d_shutter == AlpacaShutterStatus_t::kClosed;
+			d_shutter = AlpacaShutterStatus_t::kClosed;
 			d_slewing = false;
 			d_relay_close = false;		// turn relays OFF
 			d_relay_open = false;
@@ -72,7 +72,7 @@ void Dome::Loop()
 	} else {
 		if(( d_shutter == AlpacaShutterStatus_t::kOpening ) && ( millis() > d_timer_end ))
 		{
-			d_shutter == AlpacaShutterStatus_t::kOpen;
+			d_shutter = AlpacaShutterStatus_t::kOpen;
 			d_slewing = false;
 			d_relay_close = false;		// turn relays OFF
 			d_relay_open = false;
@@ -81,7 +81,7 @@ void Dome::Loop()
 		
 		if(( d_shutter == AlpacaShutterStatus_t::kClosing ) && ( millis() > d_timer_end ))
 		{
-			d_shutter == AlpacaShutterStatus_t::kClosed;
+			d_shutter = AlpacaShutterStatus_t::kClosed;
 			d_slewing = false;
 			d_relay_close = false;		// turn relays OFF
 			d_relay_open = false;
@@ -108,9 +108,10 @@ const bool Dome::_putClose()
     if( d_shutter == AlpacaShutterStatus_t::kOpening ) {
 		SLOG_WARNING_PRINTF("WARNING! Dome close command ignored while opening");
 		return false;
-	} else if( d_shutter == AlpacaShutterStatus_t::kClosing ) {
+	}
+	
+	if( d_shutter == AlpacaShutterStatus_t::kClosing ) {
 		SLOG_INFO_PRINTF("INFO Dome is already closing. Command ignored.");
-		return true;
 	} else {
 		d_slewing = true;
 		d_shutter = AlpacaShutterStatus_t::kClosing;
@@ -130,9 +131,10 @@ const bool Dome::_putOpen()
     if( d_shutter == AlpacaShutterStatus_t::kClosing ) {
 		SLOG_WARNING_PRINTF("WARNING! Dome open command ignored while closing");
 		return false;
-	} else if( d_shutter == AlpacaShutterStatus_t::kOpening ) {
+	}
+	
+	if( d_shutter == AlpacaShutterStatus_t::kOpening ) {
 		SLOG_INFO_PRINTF("INFO Dome is already opening. Command ignored.");
-		return true;
 	} else {
 		SLOG_INFO_PRINTF("Dome command open received.");
 		d_slewing = true;
@@ -140,7 +142,7 @@ const bool Dome::_putOpen()
 		d_timer_ini = millis();
 		d_timer_end = d_timer_ini + d_timeout * 1000;
 
-		d_relay_close = false;		// turn close relays OFF
+		d_relay_close = false;			// turn close relays OFF
 		d_relay_open = true;			// turn open relays ON
 	}
 	
