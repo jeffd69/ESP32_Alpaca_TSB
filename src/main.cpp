@@ -76,27 +76,24 @@ void checkForRestart(void);
 
 void setup()
 {
-	pinMode(IN_PIN_AP_SET, INPUT_PULLUP);             	// net configuration button (WARNING no pullup on chip)
-	pinMode(OUT_PIN_AP_LED, OUTPUT);           			// net configuration LED
-	digitalWrite(OUT_PIN_AP_LED, HIGH);        			// turn LED OFF
-	delay(100);
+	init_IO();
+
+	Serial.begin(115200);
+	delay(1000);
+	Serial.println("Serial OK");
+
+	//pinMode(IN_PIN_AP_SET, INPUT_PULLUP);             	// net configuration button (WARNING no pullup on chip)
+	//pinMode(OUT_PIN_AP_LED, OUTPUT);           			// net configuration LED
+	//digitalWrite(OUT_PIN_AP_LED, HIGH);        			// turn LED OFF
+	//delay(100);
 
 	if( LOW == digitalRead(IN_PIN_AP_SET)) {
-		digitalWrite(OUT_PIN_AP_LED, LOW);     			// turn LED ON
-		delay(1000);
-		if( LOW == digitalRead(IN_PIN_AP_SET)) {
-			Serial.println("Entering WiFi provisioning mode.");
-			provisioning();
-		}
+		Serial.println("Entering WiFi provisioning mode.");
+		provisioning();
 	}
 
 	normal_boot();
-	
-	// setup ESP32AlpacaDevices
-	// 1. Init AlpacaServer
-	// 2. Init and add devices
-	// 3. Finalize AlpacaServer
-	// 4. Initialize vars
+
 	alpaca_server.Begin();
 
 	domeDevice.Begin();
@@ -147,8 +144,6 @@ void loop()
 	}
 
 	if( domeDevice.GetNumberOfConnectedClients() > 0 ) {
-		//_shift_reg_out |= BIT_DOME;                       // Dome connected LED ON
-
 		if( _shift_reg_in & BIT_FC_CLOSE )                	// handle close switch input
 			d_switch_closed = true;
 		else
@@ -173,8 +168,6 @@ void loop()
 			_shift_reg_out &= ~BIT_ROOF_OPEN;
 		}
 	} else {
-		//_shift_reg_out &= ~BIT_DOME;            	// Dome connected LED OFF
-
 		// set flags according to bits in shift registers
 		if( _shift_reg_in & BIT_BUTTON_CLOSE)   	// if no clients connected, handle manual close button
 			d_close_button = true;
@@ -211,7 +204,6 @@ void loop()
 	}
 
 	if( safemonDevice.GetNumberOfConnectedClients() > 0 ) {
-		//_shift_reg_out |= BIT_SAFEMON;                    				// SafetyMonitor connected LED ON
 
 		if(( _shift_reg_in & BIT_SAFE_RAIN ) != 0) {					// rain signal
 			if( tmr_rain_ini == 0 ) {									// if it's the first event, start counting the rain delay
@@ -249,7 +241,6 @@ void loop()
 	}
 	else
 	{
-		//_shift_reg_out &= ~BIT_SAFEMON;                   // SafetyMonitor connected LED OFF
 		_safemon_inputs = 0;
 		is_ws_connected = false;
 	}
@@ -258,8 +249,6 @@ void loop()
 	{
 		uint32_t i;
 		uint16_t p;
-
-		//_shift_reg_out |= BIT_SWITCH;                 	// Switch connected LED ON
 
 		for(i=0; i<8; i++)
 		{
@@ -292,7 +281,6 @@ void loop()
 	} else {
 		uint32_t i;
 
-		//_shift_reg_out &= ~BIT_SWITCH;                    // Switch connected LED OFF
 		_shift_reg_out &= BIT_OUT_CLEAR;                  	// clear all OUT bits
 		for(i=0; i<8; i++)
 		{
@@ -307,8 +295,8 @@ void loop()
 		}
 	}
 
-	if(( millis() - tmr_LED ) < 1000 )                  	// blink CPU OK LED
-	{
+	if(( millis() - tmr_LED ) < 1000 ) {                 	// blink CPU OK LED
+	
 		if(( millis() - tmr_LED ) < 500 )
 		{
 			_shift_reg_out |= BIT_CPU_OK;		// CPU LED ON
@@ -439,75 +427,72 @@ void flush_tx(void) { for(int i=0; i< UART1_BUFFER; i++) tx_1_buffer[i] = 0; }
 void flush_rx(void) { for(int i=0; i< UART1_BUFFER; i++) rx_1_buffer[i] = 0; }
 
 // if wifi is not configured, setup WiFiManager to configure via web
-void provisioning()
-{
-	WiFi.mode(WIFI_STA); // explicitly set mode, esp defaults to STA+AP
-	Serial.begin(115200);
-
-	//WiFiManager, Local intialization. Once its business is done, there is no need to keep it around
-	WiFiManager wm;
-
-	// setup menu to be shown in configuration page
-	const char * menu[] = {"wifi","setup","sep","exit"};
-	wm.setMenu(menu, sizeof(menu));
-
+void provisioning() {
 	Serial.println("Keep button pressed for 5s to reset WiFi settings.");
-	delay(5000);
-	if( LOW == digitalRead(IN_PIN_AP_SET))
-	{
-		Serial.println("Stored AP settings erased!");
-	// reset settings - wipe stored credentials that are stored by the esp library (for testing)
-		wm.resetSettings();
-		for(int i=0; i< 10; i++){
-			digitalWrite(OUT_PIN_AP_LED, HIGH);         // turn LED OFF
-			delay(50);
-			digitalWrite(OUT_PIN_AP_LED, LOW);          // turn LED ON
+	uint32_t tmr = millis();
+	while(((millis() - tmr) < 5000) && (LOW == digitalRead(IN_PIN_AP_SET))) {
+		digitalWrite(OUT_PIN_AP_LED, HIGH);         	// turn LED ON
+		delay(50);
+		digitalWrite(OUT_PIN_AP_LED, LOW);          	// turn LED OFF
+		delay(50);
+	}
+
+	if(LOW == digitalRead(IN_PIN_AP_SET)) {
+		Serial.println("Release the button");
+		while(LOW == digitalRead(IN_PIN_AP_SET)) {		// wait button released
+			digitalWrite(OUT_PIN_AP_LED, HIGH);         // turn LED ON
 			delay(50);
 		}
+	
+		WiFi.mode(WIFI_STA); // explicitly set mode, esp defaults to STA+AP
+
+		WiFiManager wm;		//WiFiManager, Local intialization. Once its business is done, there is no need to keep it around
+		const char * menu[] = {"wifi","setup","sep","exit"};	// setup menu to be shown in configuration page
+		wm.setMenu(menu, sizeof(menu));
+		wm.setTitle("WiFi_Setup");
+		wm.resetSettings();
+
+		// Automatically connect using saved credentials,
+		// if connection fails, it starts an access point with the specified name ( "Alpaca_TSB_AP")
+		wm.setConfigPortalTimeout(300);
+		//Set _device_name so it's visible in the WiFi configuration web page
+		wm.setCustomDeviceName("Alpaca_TSB");
+	
+		bool res = wm.autoConnect("Alpaca_TSB_AP","password");     // password protected ap
+
+		if(!res) {
+			Serial.println("Failed to connect");
+			ESP.restart();
+		} 
+		else {
+			//if you get here you have connected to the WiFi    
+			Serial.println("connected...yeey :)");
+			digitalWrite(OUT_PIN_AP_LED, HIGH);        // turn LED OFF
+			Serial.println("End of provisioning!");
+			delay(1000);
+			ESP.restart();
+			delay(5000);
+		}
 	}
-
-	// Automatically connect using saved credentials,
-	// if connection fails, it starts an access point with the specified name ( "Alpaca_TSB_AP")
-	wm.setConfigPortalTimeout(300);
-
-	bool res;
-	res = wm.autoConnect("Alpaca_TSB_AP","password");     // password protected ap
-
-	if(!res) {
-		Serial.println("Failed to connect");
-		ESP.restart();
-	} 
-	else {
-		//if you get here you have connected to the WiFi    
-		Serial.println("connected...yeey :)");
-	}
-
-	delay(1000);
-	digitalWrite(OUT_PIN_AP_LED, HIGH);        // turn LED OFF
-	Serial.println("End of provisioning!");
 }
 
-void normal_boot()
-{
-	Serial.begin(115200);
-	delay(1000);
-	Serial.println("Serial OK");
-
-	init_IO();
+void normal_boot() {
 	// setup logging and WiFi
 	g_Slog.Begin(Serial, 115200);
 	SLOG_NOTICE_PRINTF("SLog started\n");
 	SLOG_INFO_PRINTF("Try to connect with WiFi\n");
 
 	WiFi.mode(WIFI_STA);
-	WiFi.begin(); // (DEFAULT_SSID, DEFAULT_PWD);
+	WiFi.begin(); 			// (DEFAULT_SSID, DEFAULT_PWD);
 
+	SLOG_INFO_PRINTF("Connecting to WiFi ..\n");
+	Serial.println("Connecting to WiFi ..");
 	uint16_t _attempts = 0;
 	while ((WiFi.status() != WL_CONNECTED) && (_attempts < 60))
 	{
-		SLOG_INFO_PRINTF("Connecting to WiFi ..\n");
 		delay(1000);
 		_attempts++;
+		Serial.print(".");
 
 		if(!(_attempts < 60)) {
 			ESP.restart();
@@ -518,6 +503,7 @@ void normal_boot()
 	char wifi_ipstr[32]; // = "xxx.yyy.zzz.www";
 	snprintf(wifi_ipstr, sizeof(wifi_ipstr), "%d.%d.%d.%d", ip[0], ip[1], ip[2], ip[3]);
 	SLOG_INFO_PRINTF("connected with %s\n", wifi_ipstr);
+	Serial.printf("connected with %s\n", wifi_ipstr);
 	
 	// finalize logging setup
 	g_Slog.Begin(alpaca_server.GetSyslogHost().c_str());
@@ -591,8 +577,7 @@ void write_shift_register( uint16_t value )
 }
 
 // initialize IOs and pin status
-void init_IO( void )
-{
+void init_IO( void ) {
 	pinMode(SR_OUT_PIN_OE, OUTPUT);             // output enable
 	pinMode(SR_OUT_PIN_STCP, OUTPUT);           // storage clock pulse
 	pinMode(SR_OUT_PIN_MR, OUTPUT);             // master reset
@@ -612,7 +597,7 @@ void init_IO( void )
 	pinMode(IN_PIN_AP_SET, INPUT);      		// net configuration button
 	pinMode(OUT_PIN_AP_LED, OUTPUT);           	// net configuration LED
 	
-	digitalWrite(SR_OUT_PIN_OE, LOW);
+	digitalWrite(SR_OUT_PIN_OE, LOW);			// shift register out
 	digitalWrite(SR_OUT_PIN_STCP, LOW);
 	digitalWrite(SR_OUT_PIN_MR, LOW);
 	digitalWrite(SR_OUT_PIN_SHCP, LOW);
