@@ -76,22 +76,20 @@ void checkForRestart(void);
 
 void setup()
 {
-	init_IO();
+	pinMode(IN_PIN_AP_SET, INPUT_PULLUP);             	// net configuration button (WARNING no pullup on chip)
+	pinMode(OUT_PIN_AP_LED, OUTPUT);           			// net configuration LED
+	digitalWrite(OUT_PIN_AP_LED, HIGH);        			// turn LED OFF
+	delay(100);
+
+	if( LOW == digitalRead(IN_PIN_AP_SET)) {	// Entering WiFi provisioning mode.
+		provisioning();
+	}
 
 	Serial.begin(115200);
 	delay(1000);
 	Serial.println("Serial OK");
 
-	//pinMode(IN_PIN_AP_SET, INPUT_PULLUP);             	// net configuration button (WARNING no pullup on chip)
-	//pinMode(OUT_PIN_AP_LED, OUTPUT);           			// net configuration LED
-	//digitalWrite(OUT_PIN_AP_LED, HIGH);        			// turn LED OFF
-	//delay(100);
-
-	if( LOW == digitalRead(IN_PIN_AP_SET)) {
-		Serial.println("Entering WiFi provisioning mode.");
-		provisioning();
-	}
-
+	init_IO();
 	normal_boot();
 
 	alpaca_server.Begin();
@@ -144,6 +142,8 @@ void loop()
 	}
 
 	if( domeDevice.GetNumberOfConnectedClients() > 0 ) {
+		_shift_reg_out |= BIT_DOME;							// Dome connected LED ON
+
 		if( _shift_reg_in & BIT_FC_CLOSE )                	// handle close switch input
 			d_switch_closed = true;
 		else
@@ -168,6 +168,8 @@ void loop()
 			_shift_reg_out &= ~BIT_ROOF_OPEN;
 		}
 	} else {
+		_shift_reg_out &= ~BIT_DOME;		// Dome connected LED OFF
+
 		// set flags according to bits in shift registers
 		if( _shift_reg_in & BIT_BUTTON_CLOSE)   	// if no clients connected, handle manual close button
 			d_close_button = true;
@@ -204,6 +206,7 @@ void loop()
 	}
 
 	if( safemonDevice.GetNumberOfConnectedClients() > 0 ) {
+		_shift_reg_out |= BIT_SAFEMON; 									// Sefemon connected LED ON
 
 		if(( _shift_reg_in & BIT_SAFE_RAIN ) != 0) {					// rain signal
 			if( tmr_rain_ini == 0 ) {									// if it's the first event, start counting the rain delay
@@ -241,6 +244,7 @@ void loop()
 	}
 	else
 	{
+		_shift_reg_out &= ~BIT_SAFEMON;		// Sefemon connected LED OFF
 		_safemon_inputs = 0;
 		is_ws_connected = false;
 	}
@@ -249,6 +253,8 @@ void loop()
 	{
 		uint32_t i;
 		uint16_t p;
+
+		_shift_reg_out |= BIT_SWITCH;		// Switch connected LED ON
 
 		for(i=0; i<8; i++)
 		{
@@ -281,6 +287,8 @@ void loop()
 	} else {
 		uint32_t i;
 
+		_shift_reg_out &= ~BIT_SWITCH;						// Switch connected LED OFF
+
 		_shift_reg_out &= BIT_OUT_CLEAR;                  	// clear all OUT bits
 		for(i=0; i<8; i++)
 		{
@@ -300,16 +308,16 @@ void loop()
 		if(( millis() - tmr_LED ) < 500 )
 		{
 			_shift_reg_out |= BIT_CPU_OK;		// CPU LED ON
-			if( domeDevice.GetNumberOfConnectedClients() > 0) _shift_reg_out |= BIT_DOME;			// Dome connected LED ON
-			if( safemonDevice.GetNumberOfConnectedClients() > 0) _shift_reg_out |= BIT_SAFEMON; 	// Sefemon connected LED ON
-			if( switchDevice.GetNumberOfConnectedClients() > 0) _shift_reg_out |= BIT_SWITCH;		// Switch connected LED ON
+			//if( domeDevice.GetNumberOfConnectedClients() > 0) _shift_reg_out |= BIT_DOME;			// Dome connected LED ON
+			//if( safemonDevice.GetNumberOfConnectedClients() > 0) _shift_reg_out |= BIT_SAFEMON; 	// Sefemon connected LED ON
+			//if( switchDevice.GetNumberOfConnectedClients() > 0) _shift_reg_out |= BIT_SWITCH;		// Switch connected LED ON
 		}
 		else
 		{
 			_shift_reg_out &= ~BIT_CPU_OK;		// CPU LED OFF
-			_shift_reg_out &= ~BIT_DOME;		// Dome connected LED OFF
-			_shift_reg_out &= ~BIT_SAFEMON;		// Sefemon connected LED OFF
-			_shift_reg_out &= ~BIT_SWITCH;		// Switch connected LED OFF
+			//_shift_reg_out &= ~BIT_DOME;		// Dome connected LED OFF
+			//_shift_reg_out &= ~BIT_SAFEMON;		// Sefemon connected LED OFF
+			//_shift_reg_out &= ~BIT_SWITCH;		// Switch connected LED OFF
 		}
 	} else {
 		tmr_LED = millis();
@@ -428,52 +436,57 @@ void flush_rx(void) { for(int i=0; i< UART1_BUFFER; i++) rx_1_buffer[i] = 0; }
 
 // if wifi is not configured, setup WiFiManager to configure via web
 void provisioning() {
+	WiFi.mode(WIFI_STA); // explicitly set mode, esp defaults to STA+AP
+	Serial.begin(115200);
+
+	//WiFiManager, Local intialization. Once its business is done, there is no need to keep it around
+	WiFiManager wm;
+
+	// setup menu to be shown in configuration page
+	const char * menu[] = {"wifi","setup","sep","exit"};
+	wm.setMenu(menu, sizeof(menu));
+
 	Serial.println("Keep button pressed for 5s to reset WiFi settings.");
-	uint32_t tmr = millis();
-	while(((millis() - tmr) < 5000) && (LOW == digitalRead(IN_PIN_AP_SET))) {
-		digitalWrite(OUT_PIN_AP_LED, HIGH);         	// turn LED ON
+	uint8_t cntr = 0;
+	while (( LOW == digitalRead(IN_PIN_AP_SET)) && (cntr < 50)) {
+		digitalWrite(OUT_PIN_AP_LED, HIGH);         // turn LED ON
 		delay(50);
-		digitalWrite(OUT_PIN_AP_LED, LOW);          	// turn LED OFF
+		digitalWrite(OUT_PIN_AP_LED, LOW);          // turn LED OFF
 		delay(50);
+		cntr++;
 	}
-
-	if(LOW == digitalRead(IN_PIN_AP_SET)) {
-		Serial.println("Release the button");
-		while(LOW == digitalRead(IN_PIN_AP_SET)) {		// wait button released
-			digitalWrite(OUT_PIN_AP_LED, HIGH);         // turn LED ON
-			delay(50);
-		}
 	
-		WiFi.mode(WIFI_STA); // explicitly set mode, esp defaults to STA+AP
-
-		WiFiManager wm;		//WiFiManager, Local intialization. Once its business is done, there is no need to keep it around
-		const char * menu[] = {"wifi","setup","sep","exit"};	// setup menu to be shown in configuration page
-		wm.setMenu(menu, sizeof(menu));
-		wm.setTitle("WiFi_Setup");
+	if( LOW == digitalRead(IN_PIN_AP_SET)) {
+		digitalWrite(OUT_PIN_AP_LED, HIGH);         // turn LED ON
+		Serial.println("Stored AP settings erased!");
+		// reset settings - wipe stored credentials that are stored by the esp library (for testing)
 		wm.resetSettings();
-
-		// Automatically connect using saved credentials,
-		// if connection fails, it starts an access point with the specified name ( "Alpaca_TSB_AP")
-		wm.setConfigPortalTimeout(300);
-		//Set _device_name so it's visible in the WiFi configuration web page
-		wm.setCustomDeviceName("Alpaca_TSB");
-	
-		bool res = wm.autoConnect("Alpaca_TSB_AP","password");     // password protected ap
-
-		if(!res) {
-			Serial.println("Failed to connect");
-			ESP.restart();
-		} 
-		else {
-			//if you get here you have connected to the WiFi    
-			Serial.println("connected...yeey :)");
-			digitalWrite(OUT_PIN_AP_LED, HIGH);        // turn LED OFF
-			Serial.println("End of provisioning!");
-			delay(1000);
-			ESP.restart();
-			delay(5000);
+		while ( LOW == digitalRead(IN_PIN_AP_SET)) {
+			delay(1);
 		}
+
+		digitalWrite(OUT_PIN_AP_LED, LOW);          // turn LED OFF
 	}
+
+	// Automatically connect using saved credentials,
+	// if connection fails, it starts an access point with the specified name ( "Alpaca_TSB_AP")
+	wm.setConfigPortalTimeout(300);
+
+	bool res;
+	res = wm.autoConnect("Alpaca_TSB_AP","password");     // password protected ap
+
+	if(!res) {
+		Serial.println("Failed to connect");
+		ESP.restart();
+	} 
+	else {
+		//if you get here you have connected to the WiFi    
+		Serial.println("connected...yeey :)");
+	}
+
+	delay(1000);
+	digitalWrite(OUT_PIN_AP_LED, HIGH);        // turn LED OFF
+	Serial.println("End of provisioning!");
 }
 
 void normal_boot() {
